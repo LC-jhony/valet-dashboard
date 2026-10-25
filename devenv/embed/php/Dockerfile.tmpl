@@ -1,0 +1,19 @@
+ARG PHP_VERSION={{.Version}}
+FROM docker.io/library/php:${PHP_VERSION}-fpm-alpine
+
+ARG HOST_UID={{.UID}}
+ARG HOST_GID={{.GID}}
+
+RUN set -eux; \
+    apk add --no-cache {{.Packages}} $PHPIZE_DEPS; \
+    {{if .ExtInstall}}docker-php-ext-install -j"$(nproc)" {{.ExtInstall}};{{end}} \
+    {{if .PeclInstall}}pecl install {{.PeclInstall}}; {{range .PeclList}}docker-php-ext-enable {{.}}; {{end}}{{end}} \
+    apk del $PHPIZE_DEPS
+
+RUN addgroup -g "${HOST_GID}" devenv \
+    && adduser -D -u "${HOST_UID}" -G devenv -s /sbin/nologin devenv
+
+COPY www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY php.ini /usr/local/etc/php/conf.d/99-devenv.ini
+
+WORKDIR /var/www

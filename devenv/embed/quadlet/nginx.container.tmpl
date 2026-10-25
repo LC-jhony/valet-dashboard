@@ -1,0 +1,30 @@
+[Unit]
+Description=devenv nginx
+Wants=network-online.target
+After=network-online.target
+{{- range .PHPUnits}}
+Wants={{.}}
+After={{.}}
+{{- end}}
+
+[Container]
+ContainerName=devenv-nginx
+Image={{.Image}}
+Network=devenv
+PublishPort={{.HTTPPort}}:80
+PublishPort={{.HTTPSPort}}:443
+Volume={{.NginxConf}}:/etc/nginx/nginx.conf:ro,Z
+Volume={{.NginxConfD}}:/etc/nginx/conf.d:ro,Z
+Volume={{.CertsDir}}:/etc/nginx/certs:ro,Z
+Volume={{.NginxLogs}}:/var/log/nginx:Z
+{{- range .Sites}}
+Volume={{.HostPath}}:{{.ContainerPath}}:ro,z
+{{- end}}
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

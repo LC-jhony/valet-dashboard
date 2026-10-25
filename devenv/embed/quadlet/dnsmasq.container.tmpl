@@ -1,0 +1,19 @@
+[Unit]
+Description=devenv dnsmasq
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=devenv-dnsmasq
+Image={{.Image}}
+Network=devenv
+PublishPort=5300:53/udp
+PublishPort=5300:53/tcp
+Volume={{.ConfigPath}}:/etc/dnsmasq.conf:ro,Z
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,23 @@
+[Unit]
+Description=devenv PHP {{.Version}} FPM
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=devenv-php{{.NoDot}}-fpm
+Image={{.Image}}
+Network=devenv
+UserNS=keep-id
+{{- range .Sites}}
+Volume={{.HostPath}}:{{.ContainerPath}}:rw,z
+{{- end}}
+Volume={{.BinDir}}:/opt/devenv/bin:ro,z
+Environment=PHP_INI_SCAN_DIR=/usr/local/etc/php/conf.d
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

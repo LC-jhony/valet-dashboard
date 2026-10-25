@@ -1,0 +1,38 @@
+[Unit]
+Description=devenv {{.Name}} {{.Version}}
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName={{.ContainerName}}
+Image={{.Image}}
+Network=devenv
+{{- if .NetworkAlias}}
+NetworkAlias={{.NetworkAlias}}
+{{- end}}
+{{- range .Volumes}}
+Volume={{.}}
+{{- end}}
+{{- range .Env}}
+Environment={{.}}
+{{- end}}
+{{- range .PublishPorts}}
+PublishPort={{.}}
+{{- end}}
+{{- if .Exec}}
+Exec={{.}}
+{{- end}}
+{{- if .HealthCmd}}
+HealthCmd={{.HealthCmd}}
+HealthInterval=5s
+HealthRetries=30
+HealthStartPeriod=10s
+{{- end}}
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,7 @@
+name: fnm
+version: "1.39.0"
+url: https://github.com/Schniz/fnm/releases/download/v1.39.0/fnm-linux.zip
+sha256: 7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224
+size: 3360953
+kind: zip
+member: fnm
