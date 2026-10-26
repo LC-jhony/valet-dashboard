@@ -3,6 +3,11 @@
 Panel de escritorio (Electron + React 19 + TypeScript) para instalar y gestionar Valet en Linux:
 sitios, versiones de PHP, puertos de nginx y servicios del sistema.
 
+## Documentación
+La guía completa está en la [wiki](wiki/Home.md): instalación, interfaz, sitios, PHP,
+puertos, servicios, ajustes, seguridad y copias, arquitectura, desarrollo y solución de
+problemas.
+
 ## Requisitos
 - Ubuntu 26.04 LTS (probado) o una distribución con systemd, polkit (`pkexec`) y NetworkManager.
 - Node 20+ para desarrollar o empaquetar la app.
