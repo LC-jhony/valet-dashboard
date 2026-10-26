@@ -1,4 +1,4 @@
-export interface Site { name: string; path: string; secure: boolean; kind: 'parked' | 'linked' }
+export interface Site { name: string; path: string; secure: boolean; kind: 'parked' | 'linked'; url: string }
 export interface PortUsage { port: number; process: string; pid: string }
 export interface ApacheInfo { installed: boolean; active: boolean; enabled: boolean; http: number | null; https: number | null }
 export interface PortsInfo {
@@ -43,7 +43,7 @@ export interface ValetInfo {
 }
 
 export interface Api {
-  sites: { list(): Promise<Site[]>; secure(name: string, on: boolean): Promise<void> }
+  sites: { list(): Promise<Site[]>; secure(name: string, on: boolean): Promise<void>; open(name: string): Promise<void> }
   php: { list(): Promise<PhpInfo>; use(version: string): Promise<void> }
   ports: {
     scan(): Promise<PortsInfo>

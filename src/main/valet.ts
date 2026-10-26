@@ -37,6 +37,19 @@ const assertWebPort = (p: number) => {
   if (RESERVED_PORTS[p]) throw new Error(`El puerto ${p} está reservado para ${RESERVED_PORTS[p]}. Elige otro para no afectar a la red.`)
 }
 
+const DEFAULT_WEB_PORTS = { http: 80, https: 443 }
+
+/** URL del sitio con el esquema y el puerto reales que sirve nginx. */
+function siteUrlFor(name: string, tld: string, secure: boolean, port: number): string {
+  const scheme = secure ? 'https' : 'http'
+  try {
+    const url = new URL(`${scheme}://${name}.${tld}${port === DEFAULT_WEB_PORTS[scheme] ? '' : `:${port}`}`)
+    // Rechaza nombres que el parser interpreta como usuario@host.
+    if (url.username || url.password) return ''
+    return url.href
+  } catch { return '' }
+}
+
 // ---------------- Sitios ----------------
 async function valetConfig(): Promise<{ tld: string; paths: string[] }> {
   try {
@@ -58,6 +71,7 @@ export async function valetDomain(): Promise<string> {
 
 export async function listSites(): Promise<Site[]> {
   const { tld, paths } = await valetConfig()
+  const { http, https } = await detectNginxPorts(await nginxFiles())
   const sites = new Map<string, Site>()
   const add = async (dir: string, kind: Site['kind']) => {
     if (!existsSync(dir)) return
@@ -69,9 +83,10 @@ export async function listSites(): Promise<Site[]> {
         if (!(await stat(full)).isDirectory()) continue
         // Un enlace (valet link) tiene prioridad sobre un parked con el mismo nombre.
         if (kind === 'parked' && sites.has(e)) continue
+        const secure = existsSync(join(VALET, 'Certificates', `${e}.${tld}.crt`))
         sites.set(e, {
-          name: e, kind, path: await realpath(full),
-          secure: existsSync(join(VALET, 'Certificates', `${e}.${tld}.crt`))
+          name: e, kind, path: await realpath(full), secure,
+          url: siteUrlFor(e, tld, secure, secure ? https : http)
         })
       } catch { /* enlace roto */ }
     }
@@ -89,6 +104,17 @@ export async function setSecure(name: string, on: boolean) {
   assertName(name)
   await prepareHelpers()
   await runValet([on ? 'secure' : 'unsecure', name])
+}
+
+/** URL que debe abrir el navegador para un sitio (respeta HTTPS y los puertos de nginx). */
+export async function siteUrl(name: string): Promise<string> {
+  assertName(name)
+  const { tld } = await valetConfig()
+  const secure = existsSync(join(VALET, 'Certificates', `${name}.${tld}.crt`))
+  const { http, https } = await detectNginxPorts(await nginxFiles())
+  const url = siteUrlFor(name, tld, secure, secure ? https : http)
+  if (!url) throw new Error('El nombre del sitio no es válido para abrirlo en el navegador')
+  return url
 }
 
 // ---------------- PHP ----------------

@@ -4,7 +4,11 @@ import type { Api, InstallEvent } from '../shared/types'
 const call = (ch: string, ...a: unknown[]) => ipcRenderer.invoke(ch, ...a)
 
 const api: Api = {
-  sites: { list: () => call('sites:list'), secure: (n, on) => call('sites:secure', n, on) },
+  sites: {
+    list: () => call('sites:list'),
+    secure: (n, on) => call('sites:secure', n, on),
+    open: (n) => call('sites:open', n)
+  },
   php: { list: () => call('php:list'), use: (v) => call('php:use', v) },
   ports: {
     scan: () => call('ports:scan'),

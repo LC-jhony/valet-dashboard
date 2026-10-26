@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import * as v from './valet'
@@ -13,6 +13,7 @@ const ICON = existsSync(ICON_PATH) ? nativeImage.createFromPath(ICON_PATH) : nul
 const handlers: Record<string, (...a: any[]) => Promise<unknown>> = {
   'sites:list': v.listSites,
   'sites:secure': v.setSecure,
+  'sites:open': async (name: string) => { await shell.openExternal(await v.siteUrl(name)) },
   'php:list': v.phpInfo,
   'php:use': v.usePhp,
   'ports:scan': v.scanPorts,

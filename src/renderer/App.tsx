@@ -599,6 +599,15 @@ function Sites({ r, query, selected }: {
                       {s.secure && <span className="tag on"><Glyph name="lock" size={11} />HTTPS</span>}
                     </div>
                     <div className="row-actions">
+                      <button
+                        className="btn"
+                        disabled={a.busy || !s.url}
+                        title={s.url ? `Abrir ${s.url} en el navegador` : 'Nombre de sitio no válido para abrirlo en el navegador'}
+                        onClick={() => a.act(() => window.api.sites.open(s.name))}
+                      >
+                        <Glyph name="globe" size={13} />
+                        Abrir
+                      </button>
                       <button className="btn" disabled={a.busy} onClick={() => a.act(() => window.api.sites.secure(s.name, !s.secure))}>
                         <Glyph name={s.secure ? 'unlock' : 'lock'} size={13} />
                         {s.secure ? 'Quitar HTTPS' : 'Activar HTTPS'}
