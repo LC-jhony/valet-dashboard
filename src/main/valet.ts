@@ -1,12 +1,15 @@
 import { homedir, tmpdir } from 'node:os'
-import { join, basename } from 'node:path'
+import { join, basename, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir, writeFile, copyFile, stat, realpath, rm } from 'node:fs/promises'
 import type { ApacheInfo, PhpInfo, PortsInfo, PortUsage, Service, ServiceAction, Site } from '../shared/types'
 import { run, sudo } from './exec'
+import { prepareHelpers, runValet } from './helpers'
 
-const VALET = join(homedir(), '.valet')
-const APP = join(homedir(), '.valet-dashboard')
+const HOME = homedir()
+const VALET = join(HOME, '.valet')
+const APP = join(HOME, '.valet-dashboard')
+const expandHome = (p: string) => (p === '~' ? HOME : p.startsWith('~/') ? join(HOME, p.slice(2)) : p)
 const NGINX_SYSTEM = '/etc/nginx/sites-available/valet.conf'
 const APACHE_DIR = '/etc/apache2'
 const APACHE_PORTS = join(APACHE_DIR, 'ports.conf')
@@ -17,14 +20,17 @@ interface AppConfig {
   https: number
   apache?: { http: number; https: number }
 }
-interface Changed { file: string; backup: string }
+interface Changed { file: string; backup: string; root: boolean }
 
-const SAFE_NAME = /^[A-Za-z0-9._-]+$/
-const assertName = (n: string) => { if (!SAFE_NAME.test(n)) throw new Error('Nombre no válido') }
+/** Los nombres llegan como argumento de execFile (sin shell): solo evitamos opciones y rutas. */
+const assertName = (n: string) => {
+  if (typeof n !== 'string' || !n || n.trim() !== n || n === '.' || n === '..' ||
+    n.startsWith('-') || /[/\\\0-\x1f\x7f]/.test(n)) throw new Error('Nombre no válido')
+}
 const assertPort = (p: number) => {
   if (!Number.isInteger(p) || p < 1 || p > 65535) throw new Error(`Puerto no válido: ${p}`)
 }
-const RESERVED_PORTS: Record<number, string> = { 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5353: 'mDNS' }
+const RESERVED_PORTS: Record<number, string> = { 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5353: 'mDNS', 5354: 'DNS seguro' }
 /** Evita romper DNS/DHCP/NTP/mDNS al mover los puertos web. */
 const assertWebPort = (p: number) => {
   assertPort(p)
@@ -34,35 +40,55 @@ const assertWebPort = (p: number) => {
 // ---------------- Sitios ----------------
 async function valetConfig(): Promise<{ tld: string; paths: string[] }> {
   try {
-    const c = JSON.parse(await readFile(join(VALET, 'config.json'), 'utf8'))
-    return { tld: c.tld ?? 'test', paths: c.paths ?? [] }
+    const raw: unknown = JSON.parse(await readFile(join(VALET, 'config.json'), 'utf8'))
+    const c = (raw && typeof raw === 'object' ? raw : {}) as { tld?: unknown; domain?: unknown; paths?: unknown }
+    const rawTld = typeof c.domain === 'string' ? c.domain : c.tld
+    const tld = typeof rawTld === 'string' && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(rawTld.trim()) ? rawTld.trim() : 'test'
+    const paths = Array.isArray(c.paths)
+      ? c.paths.filter((p): p is string => typeof p === 'string' && p.trim() !== '').map(expandHome)
+      : []
+    return { tld, paths }
   } catch { return { tld: 'test', paths: [] } }
+}
+
+/** Dominio que Valet usa para los sitios (config.json escribe "domain"). */
+export async function valetDomain(): Promise<string> {
+  return (await valetConfig()).tld
 }
 
 export async function listSites(): Promise<Site[]> {
   const { tld, paths } = await valetConfig()
-  const sites: Site[] = []
+  const sites = new Map<string, Site>()
   const add = async (dir: string, kind: Site['kind']) => {
     if (!existsSync(dir)) return
-    for (const e of await readdir(dir)) {
+    let entries: string[]
+    try { entries = await readdir(dir) } catch { return }
+    for (const e of entries) {
       const full = join(dir, e)
       try {
         if (!(await stat(full)).isDirectory()) continue
-        sites.push({
+        // Un enlace (valet link) tiene prioridad sobre un parked con el mismo nombre.
+        if (kind === 'parked' && sites.has(e)) continue
+        sites.set(e, {
           name: e, kind, path: await realpath(full),
           secure: existsSync(join(VALET, 'Certificates', `${e}.${tld}.crt`))
         })
       } catch { /* enlace roto */ }
     }
   }
-  for (const p of paths.filter((p) => !p.endsWith('/Sites'))) await add(p, 'parked')
-  await add(join(VALET, 'Sites'), 'linked')
-  return sites.sort((a, b) => a.name.localeCompare(b.name))
+  const linksDir = resolve(join(VALET, 'Sites'))
+  for (const p of paths) {
+    if (resolve(p) === linksDir) continue
+    await add(p, 'parked')
+  }
+  await add(linksDir, 'linked')
+  return [...sites.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function setSecure(name: string, on: boolean) {
   assertName(name)
-  await run('valet', [on ? 'secure' : 'unsecure', name])
+  await prepareHelpers()
+  await runValet([on ? 'secure' : 'unsecure', name])
 }
 
 // ---------------- PHP ----------------
@@ -76,12 +102,13 @@ export async function phpInfo(): Promise<PhpInfo> {
     }
   }
   const current = (await run('php', ['-r', 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;'], true)).trim()
-  return { versions: versions.sort().reverse(), current }
+  return { versions: versions.sort((a, b) => b.localeCompare(a, undefined, { numeric: true })), current }
 }
 
 export async function usePhp(version: string) {
   if (!/^\d+\.\d+$/.test(version)) throw new Error('Versión no válida')
-  await run('valet', ['use', `php@${version}`])
+  await prepareHelpers()
+  await runValet(['use', `php@${version}`])
 }
 
 // ---------------- Puertos ----------------
@@ -117,6 +144,7 @@ async function listenUsage(): Promise<PortUsage[]> {
     const c = line.trim().split(/\s+/)
     if (c.length < 5) continue
     const port = Number(c[3].slice(c[3].lastIndexOf(':') + 1))
+    if (!validPort(port)) continue
     const p = line.match(/\("([^"]+)",pid=(\d+)/)
     if (!usage.some((u) => u.port === port)) usage.push({ port, process: p?.[1] ?? '—', pid: p?.[2] ?? '' })
   }
@@ -165,19 +193,28 @@ async function assertPortsFree(ports: number[], owner: RegExp) {
   }
 }
 
-async function backupFile(file: string, stamp: string, kind: string): Promise<Changed> {
+async function backupFile(file: string, stamp: string, kind: string, root: boolean): Promise<Changed> {
   const dir = join(APP, 'backups', stamp, kind)
   await mkdir(dir, { recursive: true })
   const backup = join(dir, `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${basename(file)}`)
   await copyFile(file, backup)
-  return { file, backup }
+  return { file, backup, root }
 }
 
-async function restoreFiles(changed: Changed[]) {
+/** Restaura las copias y devuelve los archivos que no se pudieron recuperar. */
+async function restoreFiles(changed: Changed[]): Promise<string[]> {
+  const failed: string[] = []
   for (const c of changed) {
-    try { await sudo('cp', [c.backup, c.file]) } catch { /* seguimos restaurando el resto */ }
+    try {
+      if (c.root) await sudo('cp', [c.backup, c.file])
+      else await copyFile(c.backup, c.file)
+    } catch { failed.push(c.file) }
   }
+  return failed
 }
+
+const restoreNote = (failed: string[]) =>
+  failed.length ? `\nNo se pudieron restaurar: ${failed.join(', ')}` : ''
 
 async function writePrivileged(file: string, content: string) {
   const tmp = join(tmpdir(), `valet-dash-${process.pid}-${Date.now()}-${basename(file)}`)
@@ -190,7 +227,7 @@ async function patchFile(file: string, transform: (src: string) => string, root:
   const src = await readFile(file, 'utf8')
   const out = transform(src)
   if (out === src) return null
-  const changed = await backupFile(file, stamp, kind)
+  const changed = await backupFile(file, stamp, kind, root)
   if (root) await writePrivileged(file, out)
   else await writeFile(file, out)
   return changed
@@ -217,13 +254,22 @@ export async function setPorts(http: number, https: number) {
   if (!files.length) throw new Error('No se encontró la configuración de nginx de Valet. Instala Valet primero.')
   const current = await detectNginxPorts(files)
   if (http === current.http && https === current.https) return
+  if (current.http === current.https)
+    throw new Error(`La configuración actual de nginx usa el mismo puerto (${current.http}) para HTTP y HTTPS. Corrígela antes de cambiarla desde aquí.`)
   await assertPortsFree([http, https], /^nginx$/i)
   const map: Record<number, number> = { [current.http]: http, [current.https]: https }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const changed: Changed[] = []
-  for (const { file, root } of files) {
-    const c = await patchFile(file, nginxTransform(map), root, stamp, 'nginx')
-    if (c) changed.push(c)
+  try {
+    for (const { file, root } of files) {
+      const c = await patchFile(file, nginxTransform(map), root, stamp, 'nginx')
+      if (c) changed.push(c)
+    }
+  } catch (e) {
+    const failed = await restoreFiles(changed)
+    const msg = (e as Error).message.trim()
+    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
+    throw new Error(`No se pudieron escribir los cambios de nginx; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   if (!changed.length) throw new Error('No se encontraron directivas listen que actualizar. Revisa la configuración de Valet.')
   const wasActive = await isActive('nginx')
@@ -232,10 +278,11 @@ export async function setPorts(http: number, https: number) {
     if (wasActive) await sudo('systemctl', ['reload', 'nginx'])
     else await sudo('systemctl', ['start', 'nginx'])
   } catch (e) {
-    await restoreFiles(changed)
+    const failed = await restoreFiles(changed)
     if (wasActive) await sudo('systemctl', ['reload', 'nginx']).catch(() => '')
     const msg = (e as Error).message.trim()
-    throw new Error(`nginx rechazó la configuración; se restauró la anterior.${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
+    throw new Error(`nginx rechazó la configuración; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   await saveConfig({ http, https })
 }
@@ -315,13 +362,22 @@ export async function setApachePorts(http: number, https: number) {
   if (current.http == null || current.https == null)
     throw new Error('No se pudieron detectar los puertos actuales de Apache (revisa ports.conf y los VirtualHost)')
   if (http === current.http && https === current.https) return
+  if (current.http === current.https)
+    throw new Error(`La configuración actual de Apache usa el mismo puerto (${current.http}) para HTTP y HTTPS. Corrígela antes de cambiarla desde aquí.`)
   await assertPortsFree([http, https], /^(apache2?|httpd)$/i)
   const map: Record<number, number> = { [current.http]: http, [current.https]: https }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const changed: Changed[] = []
-  for (const file of allFiles) {
-    const c = await patchFile(file, apacheTransform(map), true, stamp, 'apache')
-    if (c) changed.push(c)
+  try {
+    for (const file of allFiles) {
+      const c = await patchFile(file, apacheTransform(map), true, stamp, 'apache')
+      if (c) changed.push(c)
+    }
+  } catch (e) {
+    const failed = await restoreFiles(changed)
+    const msg = (e as Error).message.trim()
+    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
+    throw new Error(`No se pudieron escribir los cambios de Apache; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   if (!changed.length) throw new Error('No se encontraron directivas Listen ni VirtualHost que actualizar en Apache.')
   const wasActive = await isActive('apache2')
@@ -329,20 +385,24 @@ export async function setApachePorts(http: number, https: number) {
     await sudo('apache2ctl', ['configtest'])
     if (wasActive) await sudo('systemctl', ['reload', 'apache2'])
   } catch (e) {
-    await restoreFiles(changed)
+    const failed = await restoreFiles(changed)
     if (wasActive) await sudo('systemctl', ['reload', 'apache2']).catch(() => '')
     const msg = (e as Error).message.trim()
-    throw new Error(`Apache rechazó la configuración; se restauró la anterior.${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
+    throw new Error(`Apache rechazó la configuración; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   await saveConfig({ apache: { http, https } })
 }
 
 // ---------------- Servicios ----------------
-const WANTED = /^(nginx|dnsmasq|apache2|mysql|mysqld|mariadb|redis|redis-server|postgresql|php\d+\.\d+-fpm)\.service$/
+const WANTED = /^(nginx|dnsmasq|valet-dns|valet-dashboard-dns|apache2|mysql|mysqld|mariadb|redis|redis-server|postgresql|php\d+\.\d+-fpm)\.service$/
 
 export async function listServices(): Promise<Service[]> {
   const units = await run('systemctl', ['list-unit-files', '--type=service', '--no-legend', '--no-pager'], true)
-  const names = units.split('\n').map((l) => l.split(/\s+/)[0]).filter((n) => WANTED.test(n)).map((n) => n.replace('.service', ''))
+  const names = units.split('\n')
+    .map((l) => l.trim().split(/\s+/))
+    .filter((c) => c.length >= 2 && WANTED.test(c[0]) && c[1] !== 'alias')
+    .map((c) => c[0].replace('.service', ''))
   if (!names.length) return []
   const st = (await run('systemctl', ['is-active', ...names], true)).trim().split('\n')
   return names.map((name, i) => ({ name, active: st[i] === 'active' }))
