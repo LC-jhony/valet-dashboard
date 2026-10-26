@@ -16,6 +16,8 @@ const api: Api = {
     check: () => call('install:check'),
     start: (o) => call('install:start', o),
     uninstall: (p) => call('install:uninstall', p),
+    repairDns: (m) => call('install:repairDns', m),
+    syncHosts: () => call('install:syncHosts'),
     onEvent: (cb) => {
       const h = (_e: unknown, ev: InstallEvent) => cb(ev)
       ipcRenderer.on('install:event', h)

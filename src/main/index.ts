@@ -26,6 +26,8 @@ for (const [ch, fn] of Object.entries(handlers)) ipcMain.handle(ch, (_e, ...args
 ipcMain.handle('install:check', inst.checkEnv)
 ipcMain.handle('install:start', (e, o) => inst.startInstall(o, (ev) => e.sender.send('install:event', ev)))
 ipcMain.handle('install:uninstall', (e, p) => inst.startUninstall(p, (ev) => e.sender.send('install:event', ev)))
+ipcMain.handle('install:repairDns', (e, m) => inst.repairDns(m, (ev) => e.sender.send('install:event', ev)))
+ipcMain.handle('install:syncHosts', (e) => inst.syncHosts((ev) => e.sender.send('install:event', ev)))
 
 function createWindow() {
   const win = new BrowserWindow({

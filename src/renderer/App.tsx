@@ -2,9 +2,10 @@ import {
   useCallback, useEffect, useRef, useState,
   type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode
 } from 'react'
-import type { Env, PhpInfo, PortsInfo, PortUsage, Service, Site } from '../shared/types'
+import type { DnsMode, Env, PhpInfo, PortsInfo, PortUsage, Service, Site } from '../shared/types'
 import { useResolvedMode, useSettings } from './theme'
 import { Icon, IconProvider, type IconName } from './icons'
+import { BrandLogo } from './BrandLogo'
 import { Glyph, type GlyphName } from './ui-icons'
 import { SettingsDialog } from './SettingsDialog'
 
@@ -22,11 +23,11 @@ const SECTIONS: Section[] = [
   { id: 'php', label: 'PHP', icon: 'php', hint: 'Versiones de php-fpm instaladas. Cambia la versión en uso con un clic.' },
   { id: 'ports', label: 'Puertos', icon: 'ports', hint: 'Puertos de Valet (nginx) y Apache, con validación y reversión automática.' },
   { id: 'services', label: 'Servicios', icon: 'services', hint: 'nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis y PostgreSQL vía systemctl.' },
-  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con sus dependencias, o desinstálalo. Cada paso se puede repetir sin riesgo.' }
+  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico.' }
 ]
 
-const KNOWN: Record<number, string> = { 53: 'DNS (dnsmasq)', 80: 'HTTP', 443: 'HTTPS', 3306: 'MySQL', 6379: 'Redis' }
-const RESERVED_PORTS = new Set([53, 67, 68, 123, 5353])
+const KNOWN: Record<number, string> = { 53: 'DNS (dnsmasq)', 80: 'HTTP', 443: 'HTTPS', 3306: 'MySQL', 5354: 'DNS seguro (Valet Dashboard)', 6379: 'Redis' }
+const RESERVED_PORTS = new Set([53, 67, 68, 123, 5353, 5354])
 const WIDTH_KEY = 'valet-dashboard:sidebar-width'
 const SIDEBAR_MIN = 220
 const SIDEBAR_MAX = 420
@@ -41,7 +42,7 @@ const serviceIcon = (name: string): IconName => {
   if (/redis/i.test(name)) return 'folder_redis_open'
   if (/php/i.test(name)) return 'php'
   if (/apache/i.test(name)) return 'folder_server_open'
-  if (/dnsmasq/i.test(name)) return 'folder_connection_open'
+  if (/dns/i.test(name)) return 'folder_connection_open'
   return 'folder_config_open'
 }
 
@@ -60,7 +61,10 @@ const TOOLS: Record<string, { label: string; icon: IconName }> = {
   valet: { label: 'Valet', icon: 'laravel' },
   nginx: { label: 'nginx', icon: 'nginx' },
   dnsmasq: { label: 'dnsmasq', icon: 'folder_connection_open' },
-  nmcli: { label: 'NetworkManager', icon: 'folder_connection_open' }
+  nmcli: { label: 'NetworkManager', icon: 'folder_connection_open' },
+  certutil: { label: 'certutil', icon: 'folder_config_open' },
+  xsel: { label: 'xsel', icon: 'folder_config_open' },
+  pkexec: { label: 'pkexec', icon: 'folder_config_open' }
 }
 
 const STATUS: Record<string, string> = { wait: 'pendiente', run: 'en curso', ok: 'listo', skip: 'omitido', fail: 'falló' }
@@ -429,12 +433,39 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
               </li>
             ))}
           </ul>
+          <div className="side-group-label">Red y DNS</div>
+          <ul className="side-check-list">
+            <li className={env.dns.networkManager ? 'ok' : 'warn'}>
+              <Icon name="folder_connection_open" size={16} />
+              <span>NetworkManager</span>
+              <Glyph name={env.dns.networkManager ? 'check' : 'alert'} size={13} />
+            </li>
+            <li className={env.dns.resolvedActive ? 'ok' : 'warn'}>
+              <Icon name="folder_connection_open" size={16} />
+              <span>systemd-resolved</span>
+              <Glyph name={env.dns.resolvedActive ? 'check' : 'alert'} size={13} />
+            </li>
+            <li className={env.dns.portFree ? 'ok' : 'warn'}>
+              <Icon name="folder_connection_open" size={16} />
+              <span>Puerto {env.dns.port} para DNS</span>
+              <Glyph name={env.dns.portFree ? 'check' : 'alert'} size={13} />
+            </li>
+            <li className={env.dns.testResolves ? 'ok' : 'warn'}>
+              <Icon name="folder_connection_open" size={16} />
+              <span>*.{env.dns.domain}</span>
+              <Glyph name={env.dns.testResolves ? 'check' : 'alert'} size={13} />
+            </li>
+          </ul>
+          {env.composer.conflict && <SideAlert>{env.composer.conflictDetail} Se usará Composer aislado.</SideAlert>}
+          {env.valet.installed && !env.valet.isolated && <SideAlert>Valet externo detectado. El dashboard usa su propio Composer aislado.</SideAlert>}
+          {env.warnings.some((w) => w.includes('DNS clásico')) && <SideAlert>Hay restos del DNS clásico de Valet. Revisa la red antes de continuar.</SideAlert>}
+          {!env.dns.resolvedActive && <SideAlert>systemd-resolved no está activo. Usa el modo hosts para no tocar la red.</SideAlert>}
           {env.portHogs.length > 0 && (
             <SideAlert>Puertos 80/443 ocupados: {env.portHogs.join(', ')}</SideAlert>
           )}
         </>
       )}
-      <p className="side-note">La instalación se ejecuta en pasos idempotentes y muestra el registro en el área principal.</p>
+      <p className="side-note">La instalación usa un Composer aislado y no reinstala NetworkManager. El DNS seguro no desactiva systemd-resolved.</p>
     </>
   )
 }
@@ -447,7 +478,7 @@ function ActivityBar({ tab, onSelect, onSettings }: {
   return (
     <nav className="rail" aria-label="Actividades">
       <button className="rail-brand" onClick={() => onSelect('sites')} title="Valet Dashboard" aria-label="Ir a Sitios">
-        <Icon name="laravel" size={25} />
+        <BrandLogo size={30} />
       </button>
       <div className="rail-group">
         {SECTIONS.map((s, i) => (
@@ -671,8 +702,8 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
   const info = r.data
   const mine = new Set(info ? [info.config.http, info.config.https] : [])
   const conflicts = info ? portConflicts(info) : 0
-  const valetReady = validWebPort(http) && validWebPort(https) && http !== https
-  const apacheReady = validWebPort(apacheHttp) && validWebPort(apacheHttps) && apacheHttp !== apacheHttps
+  const valetReady = validWebPort(http) && validWebPort(https) && Number(http) !== Number(https)
+  const apacheReady = validWebPort(apacheHttp) && validWebPort(apacheHttps) && Number(apacheHttp) !== Number(apacheHttps)
 
   return (
     <Page
@@ -860,19 +891,30 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   const [pkg, setPkg] = useState('cpriego/valet-linux')
   const [parkDir, setParkDir] = useState('')
   const [stopApache, setStopApache] = useState(true)
+  const [dnsMode, setDnsMode] = useState<DnsMode>('safe')
+  const dnsInitialized = useRef(false)
   const [steps, setSteps] = useState<{ id: string; label: string; status: string }[]>([])
   const [log, setLog] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const logRef = useRef<HTMLPreElement>(null)
   const env = r.data
-  const installed = env?.tools.valet
+  const installed = env?.valet.installed ?? false
+  const safeAvailable = Boolean(env?.dns.resolvedActive && env?.dns.portFree && env?.dns.resolvConfOk)
+  const portBlocked = Boolean(env && env.portHogs.length > 0 && !(stopApache && env.portHogs.every((h) => /apache/i.test(h))))
+  const repairMode: 'safe' | 'hosts' = dnsMode === 'hosts' ? 'hosts' : 'safe'
 
   useEffect(() => window.api.install.onEvent((ev) => {
     if (ev.type === 'plan') setSteps(ev.steps.map((s) => ({ ...s, status: 'wait' })))
     else if (ev.type === 'step') setSteps((p) => p.map((s) => (s.id === ev.id ? { ...s, status: ev.status } : s)))
     else setLog((l) => (l + ev.text).slice(-60000))
   }), [])
+
+  useEffect(() => {
+    if (dnsInitialized.current || !env?.recommendedDnsMode) return
+    dnsInitialized.current = true
+    setDnsMode(env.recommendedDnsMode)
+  }, [env?.recommendedDnsMode])
 
   useEffect(() => {
     if (!visible) return
@@ -893,48 +935,140 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
     onChanged()
   }
 
+  const start = () => {
+    if (dnsMode === 'classic' &&
+      !confirm('El modo clásico deja que Valet modifique systemd-resolved, /etc/resolv.conf y NetworkManager. Puede cortar el WiFi o el DNS. ¿Continuar?')) return
+    if (env?.valet.installed && !env.valet.isolated &&
+      !confirm('Hay un Valet externo detectado. El instalador creará un Composer aislado y reemplazará /usr/local/bin/valet. ¿Continuar?')) return
+    void go(() => window.api.install.start({ pkg, parkDir, stopApache, dnsMode }))
+  }
+
   return (
     <Page
       title="Instalación"
-      hint="Instala Valet con sus dependencias, o desinstálalo. Cada paso se puede repetir sin riesgo."
+      hint="Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico."
       error={r.error || error}
       loading={r.loading}
       onRefresh={r.reload}
     >
       {r.loading && !env && <RowsSkeleton rows={5} />}
       {env && (
-        <ul className="rows">
-          <li>
-            <div className="row-main">
-              <span className="row-icon"><Icon name="folder_server_open" size={18} /></span>
-              <div className="row-text">
-                <strong>{env.distro}</strong>
-                <small>{env.pm ? `Gestor de paquetes: ${env.pm}` : 'Distribución no soportada para la instalación automática'}</small>
+        <>
+          <ul className="rows">
+            <li>
+              <div className="row-main">
+                <span className="row-icon"><Icon name="folder_server_open" size={18} /></span>
+                <div className="row-text">
+                  <strong>{env.distro}</strong>
+                  <small>{env.pm ? `Gestor de paquetes: ${env.pm}` : 'Distribución no soportada para la instalación automática'}</small>
+                </div>
               </div>
+            </li>
+            {Object.entries(TOOLS).map(([key, tool]) => (
+              <li key={key}>
+                <div className="row-main">
+                  <span className="row-icon"><Icon name={tool.icon} size={18} /></span>
+                  <div className="row-text">
+                    <strong>{tool.label}</strong>
+                    <small>{tool.label === 'Valet' ? (env.valet.isolated ? 'Composer aislado' : 'valet-linux') : 'requerido'}</small>
+                  </div>
+                </div>
+                <div className="row-meta">
+                  <span className={`tag ${env.tools[key] ? 'on' : 'warn'}`}>{env.tools[key] ? 'instalado' : 'falta'}</span>
+                  {key === 'composer' && env.composer.conflict && <span className="tag warn">conflicto global</span>}
+                </div>
+              </li>
+            ))}
+            {env.portHogs.length > 0 && (
+              <li className="conflict">
+                <div className="row-main">
+                  <span className="row-icon"><Icon name="folder_warning_open" size={18} /></span>
+                  <div className="row-text"><strong>Puertos 80/443 ocupados</strong><small>{env.portHogs.join(', ')}</small></div>
+                </div>
+                <div className="row-meta"><span className="tag warn"><Glyph name="alert" size={11} />posible conflicto</span></div>
+              </li>
+            )}
+          </ul>
+
+          {env.warnings.length > 0 && (
+            <div className="panel">
+              <div className="panel-head">
+                <span className="panel-icon"><Icon name="folder_warning_open" size={18} /></span>
+                <h2 className="panel-title">Advertencias del sistema</h2>
+              </div>
+              <ul className="side-check-list">
+                {env.warnings.map((w, i) => (
+                  <li key={i} className="warn">
+                    <Icon name="folder_warning_open" size={16} />
+                    <span>{w}</span>
+                    <Glyph name="alert" size={13} />
+                  </li>
+                ))}
+              </ul>
             </div>
-          </li>
-          {Object.entries(TOOLS).map(([key, tool]) => (
-            <li key={key}>
-              <div className="row-main">
-                <span className="row-icon"><Icon name={tool.icon} size={18} /></span>
-                <div className="row-text"><strong>{tool.label}</strong><small>{tool.label === 'Valet' ? 'valet-linux' : 'requerido'}</small></div>
-              </div>
-              <div className="row-meta">
-                <span className={`tag ${env.tools[key] ? 'on' : 'warn'}`}>{env.tools[key] ? 'instalado' : 'falta'}</span>
-              </div>
-            </li>
-          ))}
-          {env.portHogs.length > 0 && (
-            <li className="conflict">
-              <div className="row-main">
-                <span className="row-icon"><Icon name="folder_warning_open" size={18} /></span>
-                <div className="row-text"><strong>Puertos 80/443 ocupados</strong><small>{env.portHogs.join(', ')}</small></div>
-              </div>
-              <div className="row-meta"><span className="tag warn"><Glyph name="alert" size={11} />posible conflicto</span></div>
-            </li>
           )}
-        </ul>
+        </>
       )}
+
+      <div className="panel" id="install-dns">
+        <div className="panel-head">
+          <span className="panel-icon"><Icon name="folder_connection_open" size={18} /></span>
+          <h2 className="panel-title">Red y DNS</h2>
+          <span className={`tag ${env?.dns.dashboardActive ? 'on' : ''}`}>
+            {env?.dns.dashboardActive ? 'DNS seguro activo' : env?.dns.testResolves ? 'resuelve' : 'sin DNS'}
+          </span>
+        </div>
+        <div className="form-grid wide">
+          <div className="field">
+            <span>Modo DNS</span>
+            <span className="seg">
+              <button
+                type="button"
+                className={dnsMode === 'safe' ? 'on' : ''}
+                disabled={!safeAvailable}
+                title={safeAvailable ? 'dnsmasq en 127.0.0.1:5354 + systemd-resolved' : 'Requiere systemd-resolved activo, /etc/resolv.conf apuntando al stub y el puerto 5354 libre'}
+                onClick={() => setDnsMode('safe')}
+              >
+                Seguro
+              </button>
+              <button type="button" className={dnsMode === 'hosts' ? 'on' : ''} onClick={() => setDnsMode('hosts')}>
+                Hosts
+              </button>
+              <button type="button" className={dnsMode === 'classic' ? 'on' : ''} onClick={() => setDnsMode('classic')}>
+                Clásico
+              </button>
+            </span>
+          </div>
+        </div>
+        <ul className="side-check-list">
+          <li className={env?.dns.resolvedActive ? 'ok' : 'warn'}>
+            <Icon name="folder_connection_open" size={16} />
+            <span>systemd-resolved</span>
+            <Glyph name={env?.dns.resolvedActive ? 'check' : 'alert'} size={13} />
+          </li>
+          <li className={env?.dns.networkManager ? 'ok' : 'warn'}>
+            <Icon name="folder_connection_open" size={16} />
+            <span>NetworkManager (sin reinstalar)</span>
+            <Glyph name={env?.dns.networkManager ? 'check' : 'alert'} size={13} />
+          </li>
+          <li className={env?.dns.portFree ? 'ok' : 'warn'}>
+            <Icon name="folder_connection_open" size={16} />
+            <span>Puerto {env?.dns.port ?? 5354} para DNS</span>
+            <Glyph name={env?.dns.portFree ? 'check' : 'alert'} size={13} />
+          </li>
+          <li className={env?.dns.testResolves ? 'ok' : 'warn'}>
+            <Icon name="folder_connection_open" size={16} />
+            <span>*.{env?.dns.domain ?? 'test'}</span>
+            <Glyph name={env?.dns.testResolves ? 'check' : 'alert'} size={13} />
+          </li>
+        </ul>
+        <p className="panel-note">
+          <strong>Seguro</strong>: dnsmasq solo en 127.0.0.1:5354 y una ruta <code>~{env?.dns.domain ?? 'test'}</code> en systemd-resolved.
+          No detiene NetworkManager, no reescribe <code>/etc/resolv.conf</code> ni desactiva systemd-resolved.
+          <strong> Hosts</strong>: sin daemon DNS; sincroniza <code>/etc/hosts</code>.
+          <strong> Clásico</strong>: usa el DNS de Valet; puede cortar WiFi/DNS.
+        </p>
+      </div>
 
       <div className="panel" id="install-options">
         <div className="panel-head">
@@ -950,14 +1084,29 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
           </label>
         </div>
         <div className="panel-actions">
-          <button className="btn primary" disabled={busy || !env?.pm} onClick={() => go(() => window.api.install.start({ pkg, parkDir, stopApache }))}>
+          <button
+            className="btn primary"
+            disabled={busy || !env?.pm || portBlocked || (dnsMode === 'safe' && !safeAvailable)}
+            onClick={start}
+          >
             <Glyph name="install" size={14} />{busy ? 'Trabajando…' : installed ? 'Reparar instalación' : 'Instalar Valet'}
           </button>
-          <button className="btn danger" disabled={busy || !installed} onClick={() => confirm('¿Desinstalar Valet y quitar su paquete de Composer?') && go(() => window.api.install.uninstall(pkg))}>
+          <button className="btn" disabled={busy || !installed || dnsMode === 'classic' || (dnsMode === 'safe' && !safeAvailable)} onClick={() => go(() => window.api.install.repairDns(repairMode))}>
+            <Glyph name="restart" size={13} />Reparar DNS
+          </button>
+          <button className="btn" disabled={busy || !installed || dnsMode !== 'hosts'} onClick={() => go(() => window.api.install.syncHosts())}>
+            <Glyph name="restart" size={13} />Sincronizar hosts
+          </button>
+          <button className="btn danger" disabled={busy || !installed || !env?.valet.isolated} onClick={() => confirm('¿Desinstalar Valet y quitar su paquete de Composer?') && go(() => window.api.install.uninstall(pkg))}>
             <Glyph name="close" size={13} />Desinstalar
           </button>
         </div>
-        <p className="panel-note">Se pedirá la contraseña de administrador en ventanas del sistema. Las dependencias se instalan con el PHP de tu distribución.</p>
+        <p className="panel-note">
+          Se usa <code>{env?.composer.isolatedHome ?? '~/.config/valet-dashboard/composer'}</code>, no el Composer global.
+          Se pedirá la contraseña de administrador en ventanas del sistema.
+          No ejecutes <code>valet install</code> ni <code>valet uninstall</code> desde la terminal: el panel activa la protección DNS.
+          {env?.valet.installed && !env.valet.isolated && ' El Valet detectado es externo y no se desinstala automáticamente.'}
+        </p>
       </div>
 
       {steps.length > 0 && (
