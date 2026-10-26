@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, type OpenDialogOptions } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import * as v from './valet'
@@ -14,6 +14,7 @@ const handlers: Record<string, (...a: any[]) => Promise<unknown>> = {
   'sites:list': v.listSites,
   'sites:secure': v.setSecure,
   'sites:open': async (name: string) => { await shell.openExternal(await v.siteUrl(name)) },
+  'sites:project-info': v.projectInfo,
   'php:list': v.phpInfo,
   'php:use': v.usePhp,
   'ports:scan': v.scanPorts,
@@ -23,6 +24,18 @@ const handlers: Record<string, (...a: any[]) => Promise<unknown>> = {
   'services:action': v.serviceAction
 }
 for (const [ch, fn] of Object.entries(handlers)) ipcMain.handle(ch, (_e, ...args) => fn(...args))
+
+ipcMain.handle('sites:pick-dir', async (e, current?: string) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  const options: OpenDialogOptions = {
+    title: 'Elegir carpeta para el proyecto',
+    defaultPath: typeof current === 'string' && current.trim() ? current : undefined,
+    properties: ['openDirectory', 'createDirectory']
+  }
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  return result.canceled ? null : result.filePaths[0] ?? null
+})
+ipcMain.handle('sites:create', (e, o) => v.createLaravelProject(o, (ev) => e.sender.send('sites:create-event', ev)))
 
 ipcMain.handle('install:check', inst.checkEnv)
 ipcMain.handle('install:start', (e, o) => inst.startInstall(o, (ev) => e.sender.send('install:event', ev)))

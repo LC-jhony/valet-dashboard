@@ -1,13 +1,18 @@
+import { spawn } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
-import { join, basename, resolve } from 'node:path'
-import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir, writeFile, copyFile, stat, realpath, rm } from 'node:fs/promises'
-import type { ApacheInfo, PhpInfo, PortsInfo, PortUsage, Service, ServiceAction, Site } from '../shared/types'
-import { run, sudo } from './exec'
-import { prepareHelpers, runValet } from './helpers'
+import { join, basename, isAbsolute, resolve, sep } from 'node:path'
+import { constants as fsConstants, existsSync } from 'node:fs'
+import { access, mkdir, readFile, readdir, writeFile, copyFile, stat, realpath, rm } from 'node:fs/promises'
+import type {
+  ApacheInfo, CreateProjectEvent, CreateProjectOptions, PhpInfo, PortsInfo, PortUsage,
+  ProjectInfo, Service, ServiceAction, Site
+} from '../shared/types'
+import { COMPOSER_HOME, run, sudo } from './exec'
+import { prepareHelpers, privilegedEnv, runValet } from './helpers'
 
 const HOME = homedir()
 const VALET = join(HOME, '.valet')
+const LINKS_DIR = join(VALET, 'Sites')
 const APP = join(HOME, '.valet-dashboard')
 const expandHome = (p: string) => (p === '~' ? HOME : p.startsWith('~/') ? join(HOME, p.slice(2)) : p)
 const NGINX_SYSTEM = '/etc/nginx/sites-available/valet.conf'
@@ -91,7 +96,7 @@ export async function listSites(): Promise<Site[]> {
       } catch { /* enlace roto */ }
     }
   }
-  const linksDir = resolve(join(VALET, 'Sites'))
+  const linksDir = resolve(LINKS_DIR)
   for (const p of paths) {
     if (resolve(p) === linksDir) continue
     await add(p, 'parked')
@@ -115,6 +120,139 @@ export async function siteUrl(name: string): Promise<string> {
   const url = siteUrlFor(name, tld, secure, secure ? https : http)
   if (!url) throw new Error('El nombre del sitio no es válido para abrirlo en el navegador')
   return url
+}
+
+// ---------------- Crear proyectos Laravel ----------------
+const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+const PROJECT_VERSION_RE = /^[0-9A-Za-z.*^~<>=|@+ ][0-9A-Za-z.*^~<>=|@+ -]{0,59}$/
+let creatingProject = false
+
+const linksDirReal = () => realpath(LINKS_DIR).catch(() => resolve(LINKS_DIR))
+
+async function isInLinksDir(dir: string): Promise<boolean> {
+  const linksDir = await linksDirReal()
+  return dir === linksDir || dir.startsWith(linksDir + sep)
+}
+
+function assertProjectName(name: string) {
+  if (!PROJECT_NAME_RE.test(name)) {
+    throw new Error('Nombre de proyecto no válido: usa minúsculas, números y guiones, sin empezar ni terminar en guion (máx. 63).')
+  }
+}
+
+async function projectParentDir(input: unknown): Promise<string> {
+  if (typeof input !== 'string' || !input.trim()) throw new Error('Elige una carpeta para el proyecto.')
+  const expanded = expandHome(input.trim())
+  if (!isAbsolute(expanded)) throw new Error('La carpeta debe ser una ruta absoluta o empezar por ~/.')
+  let parent: string
+  try { parent = await realpath(expanded) } catch { throw new Error('La carpeta de destino no existe.') }
+  if (!(await stat(parent)).isDirectory()) throw new Error('La ruta de destino no es una carpeta.')
+  if (await isInLinksDir(parent)) {
+    throw new Error('La carpeta ~/.valet/Sites está reservada para los enlaces de Valet. Elige otra carpeta de proyectos.')
+  }
+  try { await access(parent, fsConstants.W_OK) } catch { throw new Error('La carpeta de destino no tiene permisos de escritura.') }
+  return parent
+}
+
+async function isParkedDir(dir: string): Promise<boolean> {
+  if (await isInLinksDir(dir)) return false
+  const { paths } = await valetConfig()
+  for (const p of paths) {
+    try { if ((await realpath(p)) === dir) return true } catch { /* ruta inexistente */ }
+  }
+  return false
+}
+
+/** Datos que necesita el diálogo de creación antes de ejecutar Composer. */
+export async function projectInfo(): Promise<ProjectInfo> {
+  const { tld, paths } = await valetConfig()
+  const parkedPaths: string[] = []
+  const linksDir = await linksDirReal()
+  for (const p of paths) {
+    try {
+      const real = await realpath(p)
+      if (real === linksDir || real.startsWith(linksDir + sep)) continue
+      if ((await stat(real)).isDirectory() && !parkedPaths.includes(real)) parkedPaths.push(real)
+    } catch { /* ruta inexistente */ }
+  }
+  const fallback = join(HOME, 'Sites')
+  const defaultDir = parkedPaths[0] ?? (existsSync(fallback) ? fallback : HOME)
+  const { http } = await detectNginxPorts(await nginxFiles())
+  const [composer, valet] = await Promise.all([
+    run('composer', ['--version'], true),
+    run('valet', ['--version'], true)
+  ])
+  return {
+    domain: tld,
+    parkedPaths,
+    defaultDir,
+    httpPort: http,
+    composerAvailable: composer.trim() !== '',
+    valetAvailable: valet.trim() !== ''
+  }
+}
+
+function composerCreate(parent: string, name: string, version: string, emit: (e: CreateProjectEvent) => void): Promise<void> {
+  const args = ['create-project', 'laravel/laravel', name, ...(version ? [version] : []), '--no-interaction', '--no-progress']
+  const printable = args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')
+  emit({ type: 'log', text: `$ composer ${printable}\n` })
+  return new Promise((resolve, reject) => {
+    const child = spawn('composer', args, { cwd: parent, env: privilegedEnv({ COMPOSER_HOME }) })
+    const out = (b: Buffer) => emit({ type: 'log', text: b.toString() })
+    child.stdout.on('data', out)
+    child.stderr.on('data', out)
+    child.on('error', (e) => reject(new Error(`No se pudo ejecutar Composer: ${e.message}`)))
+    child.on('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(`Composer terminó con código ${code}. Revisa el registro.`))
+    })
+  })
+}
+
+export async function createLaravelProject(opts: CreateProjectOptions, emit: (e: CreateProjectEvent) => void): Promise<Site> {
+  if (creatingProject) throw new Error('Ya hay una creación de proyecto en curso.')
+  creatingProject = true
+  try {
+    const name = typeof opts?.name === 'string' ? opts.name.trim() : ''
+    assertProjectName(name)
+    const version = typeof opts?.version === 'string' ? opts.version.trim() : ''
+    if (version && !PROJECT_VERSION_RE.test(version)) {
+      throw new Error('Versión de Laravel no válida. Usa una restricción como 12.* o ^12.0.')
+    }
+
+    const parent = await projectParentDir(opts?.parentDir)
+    const target = join(parent, name)
+    if (existsSync(target)) throw new Error(`Ya existe ${target}. Elige otro nombre o carpeta.`)
+    if ((await listSites()).some((s) => s.name === name)) throw new Error(`Ya existe un sitio llamado ${name}.`)
+
+    const [composer, valet] = await Promise.all([
+      run('composer', ['--version'], true),
+      run('valet', ['--version'], true)
+    ])
+    if (!composer.trim()) throw new Error('Composer no está instalado. Instálalo desde la pestaña Instalación.')
+    if (!valet.trim()) throw new Error('Valet no está instalado. Instálalo desde la pestaña Instalación.')
+
+    emit({ type: 'stage', label: 'Creando el proyecto con Composer…' })
+    await composerCreate(parent, name, version, emit)
+
+    emit({ type: 'stage', label: 'Registrando el sitio en Valet…' })
+    if (!(await isParkedDir(parent))) {
+      await prepareHelpers()
+      try {
+        await runValet(['link', name], false, target)
+      } catch (e) {
+        throw new Error(`El proyecto se creó en ${target}, pero no se pudo enlazar en Valet: ${(e as Error).message}`)
+      }
+    }
+
+    emit({ type: 'stage', label: 'Actualizando la lista de sitios…' })
+    const site = (await listSites()).find((s) => s.name === name)
+    if (!site) throw new Error(`El proyecto se creó en ${target}, pero no aparece en la lista de Valet.`)
+    emit({ type: 'stage', label: 'Proyecto creado' })
+    return site
+  } finally {
+    creatingProject = false
+  }
 }
 
 // ---------------- PHP ----------------

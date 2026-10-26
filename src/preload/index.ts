@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Api, InstallEvent } from '../shared/types'
+import type { Api, CreateProjectEvent, InstallEvent } from '../shared/types'
 
 const call = (ch: string, ...a: unknown[]) => ipcRenderer.invoke(ch, ...a)
 
@@ -7,7 +7,15 @@ const api: Api = {
   sites: {
     list: () => call('sites:list'),
     secure: (n, on) => call('sites:secure', n, on),
-    open: (n) => call('sites:open', n)
+    open: (n) => call('sites:open', n),
+    projectInfo: () => call('sites:project-info'),
+    pickDirectory: (current) => call('sites:pick-dir', current),
+    create: (o) => call('sites:create', o),
+    onCreateEvent: (cb) => {
+      const h = (_e: unknown, ev: CreateProjectEvent) => cb(ev)
+      ipcRenderer.on('sites:create-event', h)
+      return () => void ipcRenderer.removeListener('sites:create-event', h)
+    }
   },
   php: { list: () => call('php:list'), use: (v) => call('php:use', v) },
   ports: {

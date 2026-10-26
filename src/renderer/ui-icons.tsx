@@ -5,7 +5,7 @@ export type GlyphName =
   | 'settings' | 'sun' | 'moon' | 'panel' | 'search' | 'refresh'
   | 'chevron' | 'check' | 'alert' | 'info' | 'lock' | 'unlock'
   | 'play' | 'stop' | 'restart' | 'terminal' | 'close' | 'copy'
-  | 'globe' | 'spinner'
+  | 'globe' | 'spinner' | 'plus'
 
 const glyphs: Record<GlyphName, ReactNode> = {
   sites: (
@@ -113,6 +113,7 @@ const glyphs: Record<GlyphName, ReactNode> = {
     </>
   ),
   close: <path d="m6 6 12 12M18 6 6 18" />,
+  plus: <path d="M12 5v14M5 12h14" />,
   copy: (
     <>
       <rect x="8.5" y="8.5" width="12" height="12" rx="2" />

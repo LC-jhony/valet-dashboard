@@ -35,8 +35,8 @@ export const privilegedEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv 
 })
 
 /** Ejecuta Valet como el usuario actual. Valet decide internamente qué comandos elevar. */
-export const runValet = (args: string[], lenient = false) =>
-  runWithEnv('valet', args, privilegedEnv(), lenient)
+export const runValet = (args: string[], lenient = false, cwd?: string) =>
+  runWithEnv('valet', args, privilegedEnv(), lenient, cwd)
 
 /** Ejecuta un comando root con la contraseña pedida por zenity/kdialog. */
 export const runSudo = (cmd: string, args: string[], extra: NodeJS.ProcessEnv = {}) =>

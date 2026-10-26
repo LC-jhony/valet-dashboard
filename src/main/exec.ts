@@ -15,17 +15,17 @@ export const env: NodeJS.ProcessEnv = {
 }
 
 /** Siempre execFile con array de argumentos: nunca pasa por un shell. */
-export function runWithEnv(cmd: string, args: string[] = [], customEnv: NodeJS.ProcessEnv = env, lenient = false): Promise<string> {
+export function runWithEnv(cmd: string, args: string[] = [], customEnv: NodeJS.ProcessEnv = env, lenient = false, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { env: customEnv, timeout: 600_000 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { env: customEnv, timeout: 600_000, cwd }, (err, stdout, stderr) => {
       if (err && !lenient) reject(new Error(stderr.trim() || err.message))
       else resolve(stdout)
     })
   })
 }
 
-export function run(cmd: string, args: string[] = [], lenient = false): Promise<string> {
-  return runWithEnv(cmd, args, env, lenient)
+export function run(cmd: string, args: string[] = [], lenient = false, cwd?: string): Promise<string> {
+  return runWithEnv(cmd, args, env, lenient, cwd)
 }
 
 /** Operaciones privilegiadas: polkit muestra el diálogo de contraseña. */

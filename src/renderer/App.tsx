@@ -8,6 +8,8 @@ import { Icon, IconProvider, type IconName } from './icons'
 import { BrandLogo } from './BrandLogo'
 import { Glyph, type GlyphName } from './ui-icons'
 import { SettingsDialog } from './SettingsDialog'
+import { CreateProjectDialog } from './CreateProjectDialog'
+import { errorMessage } from './errors'
 
 type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install'
 
@@ -96,7 +98,7 @@ function useResource<T>(loadFn: () => Promise<T>, active = true): Resource<T> {
     setError('')
     loadFn()
       .then((value) => { if (ticket.current === id) setData(value) })
-      .catch((e: unknown) => { if (ticket.current === id) setError(e instanceof Error ? e.message : String(e)) })
+      .catch((e: unknown) => { if (ticket.current === id) setError(errorMessage(e)) })
       .finally(() => { if (ticket.current === id) setLoading(false) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -113,7 +115,7 @@ function useAction(reload: () => void) {
     try {
       await run()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setBusy(false)
       reload()
@@ -122,12 +124,13 @@ function useAction(reload: () => void) {
   return { busy, error, act }
 }
 
-function Page({ title, hint, error, loading, onRefresh, children }: {
+function Page({ title, hint, error, loading, onRefresh, actions, children }: {
   title: string
   hint: string
   error: string
   loading: boolean
   onRefresh: () => void
+  actions?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -138,6 +141,7 @@ function Page({ title, hint, error, loading, onRefresh, children }: {
           <p>{hint}</p>
         </div>
         <div className="page-actions">
+          {actions}
           <button className="btn" onClick={onRefresh} disabled={loading} aria-label={loading ? 'Actualizando' : 'Actualizar'} title="Actualizar">
             <Glyph name="refresh" size={14} className={loading ? 'spin' : ''} />
             <span className="btn-label">{loading ? 'Actualizando…' : 'Actualizar'}</span>
@@ -543,10 +547,11 @@ function StatusBar({ section, sites, php, ports, services, mode, onToggleTheme }
   )
 }
 
-function Sites({ r, query, selected }: {
+function Sites({ r, query, selected, onCreate }: {
   r: Resource<Site[]>
   query: string
   selected: string | null
+  onCreate: () => void
 }) {
   const a = useAction(r.reload)
   const refs = useRef(new Map<string, HTMLLIElement>())
@@ -563,15 +568,21 @@ function Sites({ r, query, selected }: {
   return (
     <Page
       title="Sitios"
-      hint="Carpetas servidas por Valet (parked y linked). Activa HTTPS por sitio sin salir del panel."
+      hint="Carpetas servidas por Valet (parked y linked). Crea proyectos Laravel, activa HTTPS o abre cada sitio."
       error={r.error || a.error}
       loading={r.loading}
       onRefresh={r.reload}
+      actions={
+        <button className="btn primary" onClick={onCreate}>
+          <Glyph name="plus" size={14} />Nuevo proyecto
+        </button>
+      }
     >
       {r.loading && !r.data && <RowsSkeleton />}
       {r.data?.length === 0 && (
         <EmptyState icon="sites" title="Aún no hay sitios">
-          Ejecuta <code>valet park</code> dentro de tu carpeta de proyectos para servirlos aquí.
+          Crea uno con <strong>Nuevo proyecto</strong> o ejecuta <code>valet park</code> dentro de tu
+          carpeta de proyectos para servirlos aquí.
         </EmptyState>
       )}
       {r.data && r.data.length > 0 && (
@@ -938,7 +949,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
     try {
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
     setBusy(false)
     onChanged()
@@ -1162,6 +1173,7 @@ export default function App() {
   const [settings, setSettings] = useSettings()
   const mode = useResolvedMode(settings.mode)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 901px)').matches)
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
@@ -1279,7 +1291,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (settingsOpen) return
+      if (settingsOpen || createOpen) return
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault()
@@ -1303,7 +1315,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [settingsOpen])
+  }, [settingsOpen, createOpen])
 
   return (
     <IconProvider theme={settings.iconTheme} mode={mode}>
@@ -1346,7 +1358,7 @@ export default function App() {
             <span className="kbd-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>B</kbd></span>
           </header>
           <main className="editor">
-            {tab === 'sites' && <Sites r={sites} query={siteQuery} selected={selectedSite} />}
+            {tab === 'sites' && <Sites r={sites} query={siteQuery} selected={selectedSite} onCreate={() => setCreateOpen(true)} />}
             {tab === 'php' && <Php r={php} selected={selectedPhp} />}
             {tab === 'ports' && <Ports r={ports} onServiceChange={refreshServicesAndPorts} />}
             {tab === 'services' && <Services r={services} selected={selectedService} onChanged={refreshServicesAndPorts} />}
@@ -1366,6 +1378,16 @@ export default function App() {
         />
         {sidebarOpen && <button className="scrim" aria-label="Cerrar panel lateral" onClick={() => setSidebarOpen(false)} tabIndex={-1} />}
         {settingsOpen && <SettingsDialog s={settings} set={setSettings} onClose={() => setSettingsOpen(false)} />}
+        {createOpen && (
+          <CreateProjectDialog
+            onClose={() => setCreateOpen(false)}
+            onCreated={(site) => {
+              setSelectedSite(site.name)
+              setTab('sites')
+              sites.reload()
+            }}
+          />
+        )}
       </div>
     </IconProvider>
   )
