@@ -2,6 +2,8 @@
   "name": "valet-dashboard",
   "version": "0.1.0",
   "description": "Panel de escritorio para gestionar Valet Linux",
+  "author": "LC-jhony <jhonyapm94@gmail.com>",
+  "desktopName": "valet-dashboard.desktop",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -28,8 +30,21 @@
     "files": [
       "out/**"
     ],
+    "extraResources": [
+      {
+        "from": "resources/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "linux": {
       "category": "Development",
+      "icon": "build/icons",
+      "desktop": {
+        "Name": "Valet Dashboard",
+        "Comment": "Panel de escritorio para Valet Linux",
+        "Categories": "Development;",
+        "StartupWMClass": "Valet Dashboard"
+      },
       "target": [
         "AppImage",
         "deb",

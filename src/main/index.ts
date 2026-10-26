@@ -1,7 +1,14 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import * as v from './valet'
 import * as inst from './install'
+
+app.setName('Valet Dashboard')
+const ICON_PATH = app.isPackaged
+  ? join(process.resourcesPath, 'icon.png')
+  : join(__dirname, '../../resources/icon.png')
+const ICON = existsSync(ICON_PATH) ? nativeImage.createFromPath(ICON_PATH) : null
 
 const handlers: Record<string, (...a: any[]) => Promise<unknown>> = {
   'sites:list': v.listSites,
@@ -24,11 +31,13 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1100, height: 720, minWidth: 760, minHeight: 520,
     autoHideMenuBar: true,
+    icon: ICON && !ICON.isEmpty() ? ICON : undefined,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   })
+  if (ICON && !ICON.isEmpty()) win.setIcon(ICON)
   win.removeMenu()
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else win.loadFile(join(__dirname, '../renderer/index.html'))

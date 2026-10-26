@@ -6,6 +6,8 @@
   --line: #2a2a2a;
   --accent: #ff4262;
   --on-accent: #fff;
+  --brand-tile: #1b1b1e;
+  --brand-edge: color-mix(in srgb, var(--accent) 42%, transparent);
   --warn: #e8a33d;
   --ok: #57a464;
   --nav: #171717;
@@ -134,7 +136,7 @@ code {
   transition: background 120ms ease;
 }
 .rail-brand:hover { background: var(--hover); }
-.rail-brand .icon { width: 25px; height: 25px; }
+.rail-brand .brand-logo { width: 30px; height: 30px; filter: drop-shadow(0 2px 5px rgb(0 0 0 / 0.22)); }
 
 .rail-group {
   display: flex;
@@ -170,16 +172,6 @@ code {
 }
 .rail-btn:hover { color: var(--nav-ink); background: color-mix(in srgb, var(--nav-ink) 7%, transparent); }
 .rail-btn.active { color: var(--accent); background: var(--active-bg); }
-.rail-btn.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-}
 .rail-btn::after {
   content: attr(data-tip);
   position: absolute;
@@ -1120,6 +1112,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   :root { --rail-w: 44px; }
   .workarea { margin: 3px 3px 0 3px; }
   .rail-brand { width: 34px; height: 34px; margin-bottom: 6px; }
+  .rail-brand .brand-logo { width: 26px; height: 26px; }
   .rail-btn { height: 44px; }
   .crumb-root, .crumb-sep { display: none; }
   .editorbar { padding: 0 8px; }
