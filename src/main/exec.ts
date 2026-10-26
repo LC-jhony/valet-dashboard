@@ -1,19 +1,31 @@
 import { execFile } from 'node:child_process'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 
-export const env = {
+const HOME = homedir()
+const SYSTEM_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+export const APP_DIR = join(HOME, '.valet-dashboard')
+export const COMPOSER_HOME = join(HOME, '.config', 'valet-dashboard', 'composer')
+export const COMPOSER_BIN = join(COMPOSER_HOME, 'vendor', 'bin')
+
+export const env: NodeJS.ProcessEnv = {
   ...process.env,
-  PATH: `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH}:${homedir()}/.config/composer/vendor/bin:${homedir()}/.composer/vendor/bin`
+  PATH: [COMPOSER_BIN, process.env.PATH, SYSTEM_PATH].filter(Boolean).join(':')
 }
 
 /** Siempre execFile con array de argumentos: nunca pasa por un shell. */
-export function run(cmd: string, args: string[] = [], lenient = false): Promise<string> {
+export function runWithEnv(cmd: string, args: string[] = [], customEnv: NodeJS.ProcessEnv = env, lenient = false): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { env, timeout: 120_000 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { env: customEnv, timeout: 600_000 }, (err, stdout, stderr) => {
       if (err && !lenient) reject(new Error(stderr.trim() || err.message))
       else resolve(stdout)
     })
   })
+}
+
+export function run(cmd: string, args: string[] = [], lenient = false): Promise<string> {
+  return runWithEnv(cmd, args, env, lenient)
 }
 
 /** Operaciones privilegiadas: polkit muestra el diálogo de contraseña. */
