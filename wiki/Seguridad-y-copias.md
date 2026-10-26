@@ -51,8 +51,8 @@ execFile(cmd, args, { env, timeout: 600_000 }, ...)
 No se usa `exec`, `spawn` con `shell: true` ni interpolación de cadenas en una línea de
 comandos. El instalador usa `spawn` con `cmd` y `args` separados, también sin shell.
 
-Esto evita inyección de comandos por nombres de sitios, puertos, rutas o paquetes. Aun así,
-el proceso principal valida los datos antes de usarlos.
+Esto evita inyección de comandos por nombres de sitios, proyectos, versiones, puertos,
+rutas o paquetes. Aun así, el proceso principal valida los datos antes de usarlos.
 
 ### Validaciones en el proceso principal
 
@@ -67,6 +67,9 @@ el proceso principal valida los datos antes de usarlos.
 | Paquete de Composer | Solo `vendor/nombre` con caracteres seguros; se pasa a minúsculas |
 | Modo DNS | Solo `safe`, `hosts` o `classic` |
 | Carpeta de proyectos | Debe ser absoluta después de expandir `~` |
+| Nombre de proyecto | Minúsculas, números y guiones; 1–63 caracteres; sin guion inicial ni final |
+| Versión de Laravel | Restricción acotada a caracteres de Composer; se rechaza si empieza por `-` |
+| Carpeta de destino | Debe existir, ser un directorio, tener permiso de escritura y resolverse a una ruta real |
 | TLD del DNS | Letras, números, puntos y guiones, con inicio y fin alfanumérico |
 
 ### Privilegios
@@ -80,6 +83,7 @@ el proceso principal valida los datos antes de usarlos.
 | Aplicar DNS seguro u hosts | `pkexec bash ~/.valet-dashboard/bin/dns-helper.sh` | Sí |
 | Copia de seguridad del sistema | `pkexec bash ~/.valet-dashboard/bin/backup.sh` | Sí |
 | `valet install`, `valet secure`, `valet use` | `valet` como tu usuario | Valet eleva lo necesario con `sudo` |
+| `valet link` al crear un proyecto | `valet` como tu usuario | Normalmente no; el enlace se crea en `~/.valet/Sites` |
 
 El panel **no ejecuta Valet como root**. Valet se lanza con tu usuario y usa un `sudo`
 auxiliar con `SUDO_ASKPASS` para las pocas órdenes que necesitan elevación. Así se conserva

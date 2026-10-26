@@ -244,6 +244,9 @@ El panel lee el dominio de `~/.valet/config.json`. Si lo cambias con `valet doma
 | 502 / 504 | PHP-FPM caído o versión incorrecta | Inicia el servicio PHP-FPM correcto en **Servicios** |
 | Permission denied | Permisos del proyecto | Asegura lectura y ejecución para el usuario de nginx |
 | Aparece `parked` y `linked` con el mismo nombre | El enlace tiene prioridad | Usa `valet unlink` o `valet forget` según corresponda |
+| **Nuevo proyecto** está deshabilitado | Falta Composer o Valet, o el formulario no es válido | Revisa el aviso del diálogo e instala lo que falte |
+| El proyecto se creó pero la página da 500 | Faltan extensiones PHP (por ejemplo, `pdo_sqlite`) o `APP_KEY` | Revisa `storage/logs/laravel.log` e instala la extensión que falte |
+| El proyecto se creó pero el dominio no resuelve | En modo Hosts no se sincronizaron las entradas | Pulsa **Sincronizar hosts** en **Instalación** |
 
 Comandos útiles:
 
@@ -254,6 +257,97 @@ valet links
 valet which
 ls -la ~/.valet/Certificates
 ```
+
+## Crear proyectos Laravel
+
+El diálogo **Nuevo proyecto** valida los datos en el proceso principal y ejecuta Composer
+con el `COMPOSER_HOME` aislado. El registro en vivo muestra el error completo cuando algo
+falla.
+
+| Mensaje | Causa | Solución |
+|---|---|---|
+| `Composer no está instalado. Instálalo desde la pestaña Instalación.` | El binario `composer` no está en el `PATH` | Instálalo desde **Instalación** o corrige el `PATH` |
+| `Valet no está instalado. Instálalo desde la pestaña Instalación.` | El binario `valet` no está disponible | Instálalo desde **Instalación** |
+| `Nombre de proyecto no válido...` | Mayúsculas, espacios, guiones al inicio/fin o más de 63 caracteres | Usa minúsculas, números y guiones |
+| `La carpeta debe ser una ruta absoluta o empezar por ~/.` | La ruta es relativa | Escribe `/home/usuario/Sites` o `~/Sites` |
+| `La carpeta de destino no existe.` | La ruta no existe | Créala o elígela con **Elegir…** |
+| `La ruta de destino no es una carpeta.` | La ruta apunta a un archivo | Elige un directorio |
+| `La carpeta de destino no tiene permisos de escritura.` | El usuario no puede escribir | Corrige permisos o elige otra carpeta |
+| `La carpeta ~/.valet/Sites está reservada para los enlaces de Valet.` | Se eligió el directorio interno de enlaces como carpeta de proyectos | Elige una ruta aparcada o cualquier otra carpeta |
+| `Ya existe /ruta/<nombre>. Elige otro nombre o carpeta.` | La carpeta de destino ya existe | Cambia el nombre o la carpeta; no se sobrescribe nada |
+| `Ya existe un sitio llamado <nombre>.` | Hay un sitio de Valet con ese nombre | Cambia el nombre o elimina el enlace anterior con `valet unlink` |
+| `Versión de Laravel no válida...` | Restricción con formato no admitido | Usa `12.*`, `^12.0`, `>=11 <13` o deja **Última estable** |
+| `Composer terminó con código X. Revisa el registro.` | Fallo de red, disco, permisos o dependencias | Corrige la causa que muestra el registro y reintenta |
+| `El proyecto se creó en ... pero no se pudo enlazar en Valet: ...` | `valet link` falló | Entra en la carpeta y ejecuta `valet link <nombre>` a mano |
+| `El proyecto se creó en ... pero no aparece en la lista de Valet.` | El enlace no existe o la ruta no es accesible | Pulsa **Actualizar**, revisa `valet links` y enlaza a mano si falta |
+| `Ya hay una creación de proyecto en curso.` | Se intentó crear otro proyecto mientras Composer trabajaba | Espera a que termine |
+| `No se pudo ejecutar Composer: ...` | Composer no arrancó o no tiene permisos | Revisa la instalación de Composer |
+| `Composer could not find a composer.json` o error de download | Red, proxy o repositorio de Composer | Revisa la conexión y el registro; reintenta |
+| `No space left on device` | Disco lleno | Libera espacio y reintenta |
+| `could not find driver` en `laravel.log` | Falta la extensión de la base de datos (por ejemplo, SQLite) | Instala `php-sqlite3` o cambia `DB_CONNECTION`/`SESSION_DRIVER` |
+
+### El proyecto no aparece después de crearlo
+
+1. Comprueba que Composer terminó sin error en el diálogo.
+2. Pulsa **Actualizar** en **Sitios**.
+3. Revisa el enlace:
+
+   ```bash
+   valet links
+   ls -la ~/.valet/Sites
+   ```
+
+4. Si la carpeta de destino no era una ruta aparcada, debe existir un enlace en
+   `~/.valet/Sites/<nombre>`. Si no existe, créalo:
+
+   ```bash
+   cd /ruta/al/proyecto
+   valet link <nombre>
+   ```
+
+5. En modo **Hosts**, sincroniza las entradas:
+
+   ```bash
+   getent hosts <nombre>.test
+   ```
+
+   Si no resuelve, pulsa **Sincronizar hosts** en **Instalación**.
+
+### El proyecto se creó pero la página falla
+
+El panel solo crea el esqueleto de Laravel; no instala extensiones PHP ni configura la base
+de datos. Un error 500 nada más abrir suele venir de Laravel, no de Valet:
+
+```bash
+cd /ruta/al/proyecto
+tail -n 80 storage/logs/laravel.log
+php -m | grep -iE 'pdo|sqlite|mysql'
+php artisan --version
+```
+
+Si el log dice `could not find driver`, instala la extensión correspondiente. Por ejemplo:
+
+```bash
+sudo apt install php-sqlite3
+```
+
+Si el problema es de permisos de `storage` o `bootstrap/cache`, corrige el propietario. En
+la configuración habitual de Valet Linux, nginx se ejecuta con tu propio usuario, así que
+no debería hacer falta usar `www-data`.
+
+### La creación se queda esperando
+
+Composer puede tardar varios minutos en una red lenta. El diálogo mantiene el registro en
+vivo y no permite cerrarse mientras trabaja. No cierres la aplicación: si lo haces, el
+proceso puede quedar a medias y la carpeta incompleta.
+
+Si el proceso se cuelga de forma indefinida, revisa en otra terminal:
+
+```bash
+ps aux | grep -E 'composer|php'
+```
+
+No hay botón de cancelación en esta versión.
 
 ## PHP
 
@@ -373,7 +467,11 @@ Después de desinstalar se conservan:
 
 - Solo Linux con `systemd`, `polkit` y, preferiblemente, NetworkManager.
 - La instalación automática requiere `apt`, `dnf` o `pacman`.
-- No crea ni elimina sitios, enlaces, rutas aparcadas, proxies ni túneles.
+- Crea proyectos Laravel nuevos, pero no elimina sitios, enlaces, rutas aparcadas, proxies
+  ni túneles.
+- No registra carpetas existentes desde la interfaz.
+- No cancela una creación de Composer en curso.
+- No instala extensiones PHP ni bases de datos para el proyecto creado.
 - No permite una versión de PHP por sitio desde la interfaz.
 - No instala MySQL, MariaDB, PostgreSQL, Redis ni Apache.
 - No configura cortafuegos.
@@ -395,6 +493,7 @@ Estos comandos son de lectura o de validación; no cambian la configuración:
 | Para qué | Comando |
 |---|---|
 | Versión de Valet | `valet --version` |
+| Versión de Composer | `composer --version` |
 | Valet aislado | `~/.config/valet-dashboard/composer/vendor/bin/valet --version` |
 | Estado global | `systemctl --failed --no-pager` |
 | nginx | `systemctl status nginx --no-pager -l` |

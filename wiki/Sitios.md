@@ -6,8 +6,8 @@ La pestaña **Sitios** muestra los proyectos que Valet está sirviendo. Un sitio
 - **Linked (enlazado)**: un directorio registrado con `valet link`, normalmente fuera de
   las carpetas aparcadas.
 
-El panel no crea ni elimina sitios: solo los lista y gestiona su HTTPS y su apertura en el
-navegador.
+El panel lista los sitios, crea proyectos Laravel nuevos, gestiona su HTTPS y los abre en
+el navegador. No elimina sitios ni registra carpetas existentes.
 
 ## Cómo se construye la lista
 
@@ -74,6 +74,83 @@ El botón **Abrir** abre la URL del sitio en el navegador predeterminado del sis
 
 > El botón solo abre la URL. No crea el sitio, no activa HTTPS y no sincroniza hosts.
 
+## Crear un proyecto Laravel
+
+El botón **Nuevo proyecto** del encabezado de Sitios crea un proyecto Laravel nuevo, lo
+registra en Valet y lo selecciona en la lista.
+
+### Requisitos
+
+- **Composer** y **Valet** instalados. Si falta alguno, el diálogo lo indica y desactiva
+  **Crear proyecto**.
+- Conexión a Internet para que Composer descargue Laravel y sus dependencias.
+- Una carpeta existente con permisos de escritura.
+
+El panel usa Composer con el `COMPOSER_HOME` aislado
+(`~/.config/valet-dashboard/composer`), igual que el instalador. No modifica el Composer
+global.
+
+### Campos del diálogo
+
+| Campo | Descripción |
+|---|---|
+| **Nombre del proyecto** | Minúsculas, números y guiones; máximo 63 caracteres; sin empezar ni terminar en guion. Será el nombre de la carpeta, del enlace y del sitio |
+| **Carpeta de proyectos** | Carpeta donde se creará `<carpeta>/<nombre>`. Se puede escribir, elegir con el selector nativo de carpetas o escoger una ruta aparcada del desplegable. `~/.valet/Sites` está reservada para enlaces y no se ofrece como destino |
+| **Versión de Laravel** | **Última estable** o **Otra versión…** con una restricción de Composer, por ejemplo `12.*`, `^12.0` o `>=11 <13` |
+
+La vista previa muestra la URL que tendrá el sitio, con el dominio y el puerto reales de
+nginx. El proyecto se crea sin HTTPS; se puede activar después con el botón de la fila.
+
+### Qué ocurre al crear
+
+1. Se validan el nombre, la carpeta, la versión, los requisitos y que no exista ya la
+   carpeta de destino ni un sitio con ese nombre.
+2. Composer ejecuta `create-project laravel/laravel <nombre> [versión]` con
+   `--no-interaction --no-progress` y el `COMPOSER_HOME` aislado.
+3. El diálogo muestra el **registro en vivo** de Composer y el paso actual.
+4. Si la carpeta elegida es **exactamente** una ruta aparcada, el proyecto aparece
+   automáticamente en la lista. Si no lo es, se ejecuta `valet link <nombre>` dentro del
+   proyecto.
+5. La lista se actualiza y el sitio nuevo queda seleccionado. El resultado ofrece
+   **Abrir sitio** y **Cerrar**.
+
+El nombre se usa para la carpeta, el enlace de Valet y el dominio: `mi-app` →
+`http://mi-app.test/` (o el dominio configurado en Valet).
+
+> **Sin cancelación:** el diálogo no interrumpe Composer a mitad. Si el proceso falla o
+> cierras la aplicación, puede quedar una carpeta incompleta; bórrala a mano antes de
+> reintentar. Si el proyecto se crea pero falla el enlace, el proyecto permanece en disco y
+> el mensaje indica la ruta.
+
+> **Modo DNS Hosts:** después de crear un proyecto, pulsa **Sincronizar hosts** en
+> [Instalación](Instalacion#modo-hosts) para que el dominio nuevo resuelva. El modo Seguro
+> resuelve cualquier subdominio de `*.test` sin pasos adicionales.
+
+### Errores habituales
+
+| Mensaje | Causa | Solución |
+|---|---|---|
+| `Composer no está instalado` | No se encontró el binario de Composer | Instálalo desde **Instalación** o revisa el `PATH` |
+| `Valet no está instalado` | No se encontró el binario de Valet | Instálalo desde **Instalación** |
+| `Nombre de proyecto no válido` | Mayúsculas, espacios, guiones al inicio/fin o más de 63 caracteres | Usa minúsculas, números y guiones |
+| `La carpeta de destino no existe` | La ruta escrita no existe | Elígela con **Elegir…** o créala antes |
+| `La carpeta de destino no tiene permisos de escritura` | El usuario no puede escribir en la carpeta | Elige otra carpeta o corrige los permisos |
+| `La carpeta ~/.valet/Sites está reservada...` | Se intentó crear dentro del directorio de enlaces de Valet | Elige una ruta aparcada o cualquier otra carpeta de proyectos |
+| `Ya existe ...` | La carpeta de destino o el sitio ya existen | Cambia el nombre o la carpeta |
+| `Versión de Laravel no válida` | La restricción no tiene un formato admitido | Usa `12.*`, `^12.0` o deja **Última estable** |
+| `Composer terminó con código X` | Fallo de red, extensión PHP o dependencia | Revisa el registro del diálogo y corrige la causa |
+| `... no se pudo enlazar en Valet` | El proyecto se creó, pero `valet link` falló | Enlázalo a mano con `valet link <nombre>` en la carpeta del proyecto |
+| `... no aparece en la lista de Valet` | El enlace no se creó o la ruta no es accesible | Pulsa **Actualizar** y revisa `valet links` |
+
+Si el sitio se crea pero la página devuelve un error 500, revisa las extensiones de PHP
+que necesita Laravel. Por ejemplo, las versiones recientes usan SQLite para las sesiones y
+necesitan `pdo_sqlite`:
+
+```bash
+php -m | grep -i pdo
+sudo apt install php-sqlite3
+```
+
 ## Activar o quitar HTTPS
 
 El botón de HTTPS ejecuta el comando correspondiente de Valet:
@@ -88,9 +165,10 @@ la lista se recarga y el certificado se refleja en la etiqueta y en el botón.
 > nginx del sitio. Si usas puertos personalizados, vuelve a guardarlos en
 > [Puertos](Puertos) después de cambiar el HTTPS.
 
-## Añadir y quitar sitios
+## Añadir y quitar sitios existentes
 
-La interfaz no tiene botones para crear, enlazar o eliminar sitios. Usa la terminal:
+La interfaz crea proyectos Laravel nuevos, pero no registra carpetas que ya existen ni
+elimina sitios. Para esas tareas usa la terminal:
 
 ### Aparcar una carpeta de proyectos
 
@@ -153,9 +231,9 @@ herramientas de Valet, vuelve a cargar la pestaña para ver las URLs nuevas.
 
 | Estado | Significado |
 |---|---|
-| **Aún no hay sitios** | No se encontraron carpetas aparcadas ni enlaces. Instala Valet y registra proyectos |
+| **Aún no hay sitios** | No se encontraron carpetas aparcadas ni enlaces. Crea un proyecto con **Nuevo proyecto** o registra uno con `valet park`/`valet link` |
 | **Sin coincidencias** | La búsqueda no coincide con ningún nombre o ruta |
-| **No hay sitios todavía** (panel) | No hay datos que mostrar; usa `valet park` o `valet link` |
+| **No hay sitios todavía** (panel) | No hay datos que mostrar; usa **Nuevo proyecto**, `valet park` o `valet link` |
 | **Error de carga** | No se pudo leer la configuración de Valet o una ruta |
 
 ## Problemas habituales
@@ -169,10 +247,21 @@ herramientas de Valet, vuelve a cargar la pestaña para ver las URLs nuevas.
 - **Un sitio nuevo no resuelve en modo Hosts**: pulsa **Sincronizar hosts**.
 - **El botón Abrir está deshabilitado**: el nombre del sitio no es un nombre de host
   válido para el navegador.
+- **Nuevo proyecto está deshabilitado**: falta Composer o Valet, o el formulario todavía
+  no es válido. Revisa el aviso del diálogo.
+- **El proyecto se creó pero el sitio no abre**: comprueba el DNS (en modo Hosts, pulsa
+  **Sincronizar hosts**), que nginx esté activo y que PHP tenga las extensiones que necesita
+  Laravel.
+- **Composer falla durante la creación**: revisa el registro en vivo; suele ser red,
+  espacio en disco, permisos o una extensión PHP ausente.
 
 ## Limitaciones
 
-- No crea ni elimina sitios, enlaces o rutas aparcadas.
+- No elimina sitios, enlaces ni rutas aparcadas. Solo crea proyectos Laravel nuevos.
+- No registra carpetas existentes ni permite enlazarlas desde la interfaz.
+- No cancela una creación de Composer en curso.
+- No activa HTTPS automáticamente al crear el proyecto.
+- No instala extensiones PHP ni bases de datos que el proyecto pueda necesitar.
 - No gestiona sitios proxy de Valet.
 - No configura `valet share` ni túneles.
 - No permite elegir una versión de PHP por sitio.

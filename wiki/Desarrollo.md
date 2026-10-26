@@ -92,7 +92,8 @@ El build debe terminar sin errores. No hay una suite de tests que ejecutar.
 
 No hay tests automatizados, así que conviene revisar a mano las áreas afectadas:
 
-- **Sitios**: lista, búsqueda, HTTPS, botón **Abrir**, estados vacíos y error.
+- **Sitios**: lista, búsqueda, HTTPS, botón **Abrir**, creación de proyectos Laravel,
+  registro en vivo, éxito, errores, estados vacíos y error.
 - **PHP**: detección de versiones, versión actual y cambio.
 - **Puertos**: valores detectados, presets, validaciones, guardado, reversión y conflictos.
 - **Servicios**: lista filtrada, estados, inicio, parada, reinicio y errores de polkit.
@@ -106,6 +107,28 @@ No hay tests automatizados, así que conviene revisar a mano las áreas afectada
 Para probar la app en un sistema limpio, usa una máquina virtual o un contenedor con
 systemd y polkit. Un contenedor sin systemd no sirve para las páginas de Servicios,
 Puertos e Instalación.
+
+### Probar la creación de proyectos
+
+La creación tarda varios minutos y escribe en disco. Para una prueba controlada:
+
+1. Crea un proyecto dentro de una ruta aparcada, por ejemplo `~/Sites/demo-panel`, y
+   comprueba que aparece sin ejecutar `valet link`.
+2. Crea otro fuera de las rutas aparcadas, por ejemplo en `/tmp/opencode/demo-panel`, y
+   comprueba que se creó `~/.valet/Sites/demo-panel`.
+3. Revisa el registro en vivo, la selección automática del sitio nuevo y **Abrir sitio**.
+4. Comprueba los errores: nombre inválido, carpeta inexistente, carpeta sin permisos,
+   proyecto duplicado, sitio duplicado y versión inválida.
+5. Si el sitio responde con 500, revisa `storage/logs/laravel.log` y las extensiones PHP
+   (`pdo_sqlite` es habitual en Laravel reciente).
+6. Limpia las pruebas:
+
+   ```bash
+   valet unlink demo-panel 2>/dev/null || true
+   rm -rf ~/Sites/demo-panel /tmp/opencode/demo-panel
+   ```
+
+El registro de creación solo vive en el diálogo y no se guarda en disco.
 
 ## Estructura y convenciones
 

@@ -36,7 +36,8 @@ sistema y expone una API pequeña a la interfaz.
                 │                               │
 ┌───────────────┴───────────────────────────────▼───────────────┐
 │ Renderer (React, sandbox, sin Node)                          │
-│  App.tsx · SettingsDialog.tsx · theme.ts · icons.tsx          │
+│  App.tsx · CreateProjectDialog.tsx · SettingsDialog.tsx      │
+│  theme.ts · icons.tsx                                        │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,7 +55,7 @@ La seguridad de la ventana se detalla en [Seguridad y copias](Seguridad-y-copias
 src/
 ├── main/
 │   ├── index.ts       Ventana, menú, registro de IPC y eventos
-│   ├── valet.ts       Sitios, PHP, puertos de nginx/Apache y servicios
+│   ├── valet.ts       Sitios, proyectos Laravel, PHP, puertos y servicios
 │   ├── install.ts     Diagnóstico, instalación, DNS, backups y desinstalación
 │   ├── exec.ts        execFile, rutas de la app y helper de pkexec
 │   └── helpers.ts     askpass, envoltorio de sudo y entorno de Valet
@@ -65,6 +66,7 @@ src/
 └── renderer/
     ├── main.tsx       Punto de entrada; aplica ajustes antes de renderizar
     ├── App.tsx        Shell, páginas, paneles y barra de estado
+    ├── CreateProjectDialog.tsx
     ├── SettingsDialog.tsx
     ├── theme.ts       Ajustes, paletas, fuentes y persistencia
     ├── icons.tsx      Iconos de archivos y variantes claro/oscuro
@@ -90,6 +92,10 @@ src/
 
 - **Sitios**: lee `~/.valet/config.json`, las rutas aparcadas y `~/.valet/Sites`; detecta
   certificados; calcula la URL con esquema y puerto reales; ordena y deduplica.
+- **Proyectos Laravel**: valida nombre, carpeta y versión; comprueba Composer y Valet;
+  ejecuta `composer create-project` con `spawn`, `cwd` y el `COMPOSER_HOME` aislado; emite
+  el registro en vivo; detecta si la carpeta es una ruta aparcada y, si no, ejecuta
+  `valet link`; devuelve el `Site` creado.
 - **PHP**: detecta `php-fpmX.Y` en `/usr/sbin` y `/usr/bin`; obtiene la versión actual de
   PHP CLI; ejecuta `valet use php@X.Y`.
 - **Puertos de nginx**: localiza `~/.valet/Nginx/*.conf` y
@@ -123,30 +129,38 @@ src/
 - Define `APP_DIR` (`~/.valet-dashboard`), `COMPOSER_HOME`
   (`~/.config/valet-dashboard/composer`) y `COMPOSER_BIN`.
 - Construye un `PATH` con el Composer aislado y las rutas del sistema.
-- Expone `run` y `runWithEnv` basados en `execFile`, con timeout de 10 minutos.
+- Expone `run` y `runWithEnv` basados en `execFile`, con timeout de 10 minutos y `cwd`
+  opcional.
 - Expone `sudo`, que ejecuta `pkexec` con el comando y sus argumentos.
 
 ### `src/main/helpers.ts`
 
 - Crea `askpass` y el envoltorio `sudo` para Valet.
 - Define `privilegedEnv`, que añade `SUDO_ASKPASS` y el `PATH` de los ayudantes.
-- Expone `runValet`, que ejecuta Valet como el usuario actual.
+- Expone `runValet`, que ejecuta Valet como el usuario actual y admite un `cwd` para
+  `valet link`.
 
 ### `src/preload/index.ts`
 
 Traduce cada método de `Api` a `ipcRenderer.invoke` con un canal fijo. Para los eventos de
-instalación, se suscribe a `install:event` y devuelve una función para desuscribirse.
+instalación se suscribe a `install:event`, y para los de creación de proyectos a
+`sites:create-event`; en ambos casos devuelve una función para desuscribirse.
 
 ### `src/shared/types.ts`
 
-Es el contrato único entre main, preload y renderer. Incluye `Api`, `Site`, `PortsInfo`,
-`PhpInfo`, `Service`, `Env`, `InstallOptions` e `InstallEvent`.
+Es el contrato único entre main, preload y renderer. Incluye `Api`, `Site`, `ProjectInfo`,
+`CreateProjectOptions`, `CreateProjectEvent`, `PortsInfo`, `PhpInfo`, `Service`, `Env`,
+`InstallOptions` e `InstallEvent`.
 
 ### `src/renderer`
 
 - `App.tsx` contiene el shell y las cinco páginas: Sitios, PHP, Puertos, Servicios e
   Instalación, además de los paneles laterales y la barra de estado.
 - `theme.ts` define los ajustes, las paletas, las fuentes y su persistencia.
+- `CreateProjectDialog.tsx` es el diálogo de creación de proyectos Laravel: formulario,
+  registro en vivo, error y éxito.
+- `errors.ts` normaliza los mensajes de error de IPC (quita el prefijo en inglés de
+  Electron).
 - `SettingsDialog.tsx` es el diálogo de apariencia.
 - `icons.tsx` resuelve el icono de archivo según tema y modo claro/oscuro.
 - `ui-icons.tsx` dibuja los glifos de la interfaz.
@@ -163,6 +177,10 @@ Todos los canales se registran en `src/main/index.ts`. La API del renderer está
 | `sites:list` | — | `Site[]` | Lee configuración, rutas y certificados |
 | `sites:secure` | `name`, `on` | `void` | Ejecuta `valet secure` o `valet unsecure` |
 | `sites:open` | `name` | `void` | Calcula la URL y la abre con `shell.openExternal` |
+| `sites:project-info` | — | `ProjectInfo` | Dominio, rutas aparcadas, carpeta por defecto, puerto HTTP y disponibilidad de Composer/Valet |
+| `sites:pick-dir` | `current?` | `string \| null` | Abre el selector nativo de carpetas de Electron |
+| `sites:create` | `CreateProjectOptions` | `Site` | Ejecuta Composer, registra el sitio y emite eventos de creación |
+| `sites:create-event` | — | — | Evento main → renderer: etapa o registro de Composer |
 | `php:list` | — | `PhpInfo` | Detecta versiones y versión actual |
 | `php:use` | `version` | `void` | Ejecuta `valet use php@X.Y` |
 | `ports:scan` | — | `PortsInfo` | Lee nginx, Apache y `ss` |
@@ -206,6 +224,34 @@ Renderer → sites:list
   → devuelve Site[] ordenado
 ```
 
+### Crear un proyecto Laravel
+
+```text
+Renderer → sites:project-info
+  → lee dominio y rutas aparcadas
+  → detecta puerto HTTP y disponibilidad de Composer/Valet
+  → devuelve ProjectInfo
+
+Renderer → sites:pick-dir (opcional)
+  → dialog.showOpenDialog con openDirectory/createDirectory
+  → devuelve ruta o null
+
+Renderer → sites:create({ name, parentDir, version })
+  → valida nombre, versión, carpeta, requisitos y duplicados
+  → emit stage: creando con Composer
+  → spawn composer create-project laravel/laravel <name> [version]
+      con cwd=parentDir y COMPOSER_HOME aislado
+  → emite log con stdout/stderr
+  → si parentDir no es una ruta aparcada: valet link <name> con cwd=<target>
+  → listSites y busca el sitio nuevo
+  → emit stage: proyecto creado
+  → devuelve Site
+  → renderer refresca la lista y selecciona el sitio
+```
+
+Si `sites:create` falla, el renderer muestra el mensaje en el diálogo y conserva el
+registro. No hay cancelación del proceso de Composer en esta versión.
+
 ### Guardar puertos de nginx
 
 ```text
@@ -246,6 +292,12 @@ Renderer → install:start(opciones)
 - **Reversión**: los cambios de puertos se restauran si la validación o la recarga fallan.
 - **Sin shell**: todos los comandos usan arrays de argumentos.
 - **Listas permitidas**: servicios, acciones, modos DNS y formatos se validan en main.
+- **Carpeta aparcada exacta**: solo si el destino es la raíz de una ruta `parked` el
+  proyecto aparece solo; en cualquier otro caso se ejecuta `valet link`.
+- **Creación sin cancelación**: Composer se ejecuta hasta terminar y el diálogo muestra el
+  registro en vivo; no se mata el proceso a mitad.
+- **Nombre y versión validados en main**: el renderer no puede pasar opciones arbitrarias a
+  Composer ni rutas fuera de la carpeta elegida.
 - **URL calculada en main**: el renderer no puede pedir que se abra una URL arbitraria.
 - **Carga diferida**: Puertos, Servicios e Instalación no se consultan hasta que se
   necesitan.

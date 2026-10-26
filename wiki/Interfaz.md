@@ -58,13 +58,16 @@ Es contextual: su contenido cambia según la sección.
 
 Cada página tiene:
 
-- **Encabezado**: título, descripción y botón **Actualizar**.
+- **Encabezado**: título, descripción, acciones de la página (por ejemplo, **Nuevo
+  proyecto** en Sitios) y botón **Actualizar**.
 - **Aviso de error**: si falla una carga o una acción, aparece un bloque con el mensaje.
 - **Contenido**: listas, tarjetas, formularios y botones.
 - **Estados de carga**: esqueletos mientras se consultan datos.
 - **Estados vacíos**: explican qué falta y cómo continuar.
 - **Confirmaciones**: algunas acciones peligrosas piden confirmación en un diálogo del
   sistema (por ejemplo, el modo DNS Clásico o desinstalar).
+- **Diálogos**: **Ajustes** y **Nuevo proyecto** se abren sobre la página. Se cierran con
+  `Esc` o con el fondo, salvo que haya una operación en curso.
 
 Los botones de acción de cada fila se deshabilitan mientras hay una operación en curso.
 Los botones con borde de acento son las acciones principales.
@@ -97,13 +100,14 @@ cargan bajo demanda. Sitios y PHP se cargan al iniciar.
 | `Ctrl+5` | Instalación |
 | `Esc` | Cerrar Ajustes; en pantallas pequeñas, cerrar el panel |
 
-También funciona `Cmd` en macOS. Los atajos se ignoran mientras el diálogo de Ajustes
-está abierto, salvo `Esc`.
+También funciona `Cmd` en macOS. Los atajos se ignoran mientras el diálogo de Ajustes o de
+Nuevo proyecto está abierto, salvo `Esc`.
 
 ## Comportamiento de las páginas
 
 - **Sitios**: búsqueda compartida entre el panel y la lista principal; el filtro se aplica
-  a nombre y ruta.
+  a nombre y ruta. **Nuevo proyecto** abre el diálogo de creación con registro de Composer;
+  al terminar, el sitio nuevo queda seleccionado.
 - **Puertos**: los campos se sincronizan con los puertos detectados al recargar. Al pulsar
   una tarjeta del panel se hace scroll suave a nginx, Apache o uso de puertos.
 - **Servicios**: las acciones recargan servicios y puertos para mantener la barra de

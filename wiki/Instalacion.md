@@ -272,7 +272,7 @@ antes de dar por terminada la limpieza.
 - No instala `sudo`.
 - No instala versiones adicionales de PHP ni extensiones a medida.
 - No configura cortafuegos.
-- No crea proyectos ni enlaces de Valet.
+- No crea proyectos Laravel ni registra carpetas existentes; eso se hace desde [Sitios](Sitios).
 - No activa HTTPS en sitios; eso se hace desde [Sitios](Sitios).
 - No restaura copias de seguridad desde la interfaz.
 

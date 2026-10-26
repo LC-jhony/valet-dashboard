@@ -1,7 +1,8 @@
 # Valet Dashboard
 
 Panel de escritorio (Electron + React 19 + TypeScript) para instalar y gestionar Valet en Linux:
-sitios, versiones de PHP, puertos de nginx y servicios del sistema.
+sitios, creación de proyectos Laravel, versiones de PHP, puertos de nginx y servicios del
+sistema.
 
 ## Documentación
 La guía completa está en la [wiki](wiki/Home.md): instalación, interfaz, sitios, PHP,
@@ -44,6 +45,21 @@ No se ejecuta `valet trust`: no existe en `cpriego/valet-linux` 2.4.5. Tampoco s
 > después de usar este panel. Esas órdenes no llevan `VALET_DASHBOARD_SAFE_DNS` y
 > podrían volver a aplicar el DNS clásico de Valet. Usa siempre los botones del panel.
 
+## Crear proyectos Laravel
+La pestaña **Sitios** incluye **Nuevo proyecto** para crear un proyecto Laravel sin salir del
+panel:
+
+- Elige el **nombre**, la **carpeta** (selector nativo o ruta aparcada) y la **versión**
+  (última estable o una restricción como `12.*`).
+- Composer se ejecuta con el `COMPOSER_HOME` aislado y muestra el registro en vivo.
+- Si la carpeta es exactamente una ruta aparcada, el sitio aparece al refrescar. Si no, se
+  ejecuta `valet link <nombre>` dentro del proyecto.
+- Al terminar, el sitio queda seleccionado y puedes abrirlo. El HTTPS se activa después con
+  el botón de la fila.
+- En modo **Hosts**, pulsa **Sincronizar hosts** después de crear el proyecto para que el
+  dominio nuevo resuelva.
+- La creación no se puede cancelar a mitad; si falla, revisa el registro del diálogo.
+
 ## Modos DNS
 - **Seguro (recomendado)**: `dnsmasq` escucha solo en `127.0.0.1:5354` y
   `systemd-resolved` recibe una ruta `~test` en `/etc/systemd/resolved.conf.d/valet-dashboard.conf`.
@@ -76,6 +92,7 @@ el recuento de sitios y, cuando se han cargado, los puertos y los servicios acti
 
 - Arrastra el borde derecho del panel para redimensionarlo (220–420 px). El ancho se recuerda.
 - `Ctrl+B` muestra u oculta el panel; `Ctrl+,` abre Ajustes; `Ctrl+1`…`Ctrl+5` cambia de sección.
+- En **Sitios**, **Nuevo proyecto** abre el diálogo de creación con registro de Composer.
 - Por debajo de 900 px el panel se convierte en una capa superpuesta.
 - La página de Instalación sigue activa al cambiar de sección: el progreso y el registro no se pierden.
 

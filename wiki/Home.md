@@ -11,7 +11,7 @@ Linux con `systemd`, `polkit` y, preferiblemente, NetworkManager.
 | Área | Acciones principales | Página |
 |---|---|---|
 | **Instalación** | Detectar el sistema, instalar Valet con Composer aislado, elegir modo DNS, reparar DNS, sincronizar hosts y desinstalar | [Instalación](Instalacion) |
-| **Sitios** | Ver sitios *parked* y *linked*, buscar, activar/quitar HTTPS y abrir el sitio en el navegador | [Sitios](Sitios) |
+| **Sitios** | Ver sitios *parked* y *linked*, crear proyectos Laravel, buscar, activar/quitar HTTPS y abrir el sitio en el navegador | [Sitios](Sitios) |
 | **PHP** | Ver las versiones de PHP-FPM instaladas y cambiar la versión en uso | [PHP](PHP) |
 | **Puertos** | Cambiar puertos de nginx y Apache, ver puertos en escucha y detectar conflictos | [Puertos](Puertos) |
 | **Servicios** | Iniciar, detener y reiniciar nginx, Apache, DNS, PHP-FPM, MySQL, Redis, etc. | [Servicios](Servicios) |
@@ -26,13 +26,15 @@ Linux con `systemd`, `polkit` y, preferiblemente, NetworkManager.
    que faltan aparecen marcadas como **falta**.
 3. Elige el **modo DNS** (el panel recomienda uno), la carpeta de proyectos y las
    opciones. Pulsa **Instalar Valet**.
-4. Cuando termine, coloca tus proyectos en la carpeta indicada (por defecto `~/Sites`)
-   y regístralos con `valet park` o `valet link` desde una terminal.
+4. Cuando termine, entra en **Sitios** y pulsa **Nuevo proyecto** para crear uno con
+   Composer, o coloca tus proyectos en la carpeta indicada (por defecto `~/Sites`) y
+   regístralos con `valet park` o `valet link` desde una terminal.
 5. Vuelve a **Sitios**, pulsa **Actualizar** y usa **Abrir** o **Activar HTTPS**.
 
-> El panel no crea ni elimina sitios. Para añadir, enlazar o quitar proyectos se usan
-> los comandos de Valet (`valet park`, `valet link`, `valet unlink`). Consulta
-> [Sitios](Sitios#añadir-y-quitar-sitios).
+> El panel crea proyectos Laravel nuevos, pero no elimina sitios ni registra carpetas
+> existentes. Para esas tareas se usan los comandos de Valet (`valet park`, `valet link`,
+> `valet unlink`). Consulta [Sitios](Sitios#crear-un-proyecto-laravel) y
+> [Sitios](Sitios#añadir-y-quitar-sitios-existentes).
 
 ## La interfaz en 30 segundos
 
@@ -78,7 +80,8 @@ Más detalle en [Seguridad y copias](Seguridad-y-copias).
 
 - Solo Linux con `systemd` y `polkit`. No funciona en Windows ni macOS.
 - La instalación automática requiere una distribución con `apt`, `dnf` o `pacman`.
-- No crea ni elimina sitios, enlaces ni proxies; solo activa o quita HTTPS en sitios existentes.
+- Crea proyectos Laravel nuevos, pero no elimina sitios, enlaces ni proxies ni registra
+  carpetas existentes.
 - No instala servidores de bases de datos, Redis ni Apache; solo los gestiona si existen.
 - No tiene actualización automática ni botón para restaurar copias de seguridad.
 - El soporte de Apache está orientado a la ruta Debian `/etc/apache2`.
