@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Valet Dashboard
+Comment=Panel de escritorio para Valet Linux
+Exec=/opt/valet-dashboard/valet-dashboard %U
+Terminal=false
+Type=Application
+Icon=valet-dashboard
+StartupWMClass=Valet Dashboard
+Categories=Development;

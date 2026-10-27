@@ -9,8 +9,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run typecheck && npm run test && electron-vite build && electron-builder --linux AppImage deb rpm",
-    "test": "vitest run"
+    "dist": "npm run typecheck && npm run test && bash scripts/build-rpm.sh && electron-builder --linux AppImage deb",
+    "test": "vitest run",
+    "dist:rpm": "bash scripts/build-rpm.sh"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

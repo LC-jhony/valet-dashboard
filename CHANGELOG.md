@@ -57,6 +57,9 @@ el endurecimiento de seguridad del proceso principal.
 
 ### Notas
 
+- El `.rpm` se empaqueta con `scripts/build-rpm.sh` y `build/rpm/valet-dashboard.spec`:
+  electron-builder 25 usa fpm 1.9.3, que pasa un `--define buildroot` que rpm 6
+  ignora, y cada fichero acaba en «File not found». El payload es el mismo.
 - `npm audit` informa de 21 avisos en dependencias de desarrollo (tinypool,
   node-gyp, cacache, tar). No afectan al binario distribuido y no se fuerzan
   porque exigirían subir a `vite` 6, incompatible con `electron-vite` 2.

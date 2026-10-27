@@ -21,6 +21,7 @@ npm install
 npm run dev        # desarrollo
 npm test           # pruebas unitarias (Vitest)
 npm run dist       # AppImage + .deb + .rpm en dist/
+npm run dist:rpm   # solo el .rpm (usa rpmbuild)
 ```
 
 Cada push y cada pull request pasa por `.github/workflows/ci.yml`: tipos, pruebas, build,

@@ -33,6 +33,7 @@ se empaquetan en el renderer.
 | `npm test` | Ejecuta las pruebas unitarias con Vitest (`vitest run`) |
 | `npm run build` | Compila main, preload y renderer en `out/` |
 | `npm run dist` | Comprueba tipos, prueba, compila y genera AppImage, `.deb` y `.rpm` en `dist/` |
+| `npm run dist:rpm` | Solo el `.rpm`, reutilizando el payload de electron-builder |
 
 No hay linter. La verificación automática es el chequeo de tipos, las pruebas y la compilación.
 
@@ -189,10 +190,24 @@ Para añadir una función, consulta la sección «Cómo añadir una función» d
 npm run dist
 ```
 
-El script ejecuta primero el build y luego:
+El script ejecuta primero el build y luego el empaquetado:
 
 ```bash
-electron-builder --linux AppImage deb rpm
+npm run test
+bash scripts/build-rpm.sh          # .rpm con rpmbuild
+electron-builder --linux AppImage deb
+```
+
+El `.rpm` no lo genera electron-builder: su fpm 1.9.3 pasa un `--define buildroot`
+que rpm 6 ignora y el paquete falla con «File not found». `scripts/build-rpm.sh`
+reutiliza el mismo payload (`dist/linux-unpacked`) y lo empaqueta con
+`rpmbuild` y `build/rpm/valet-dashboard.spec`, así que el resultado es
+equivalente. Necesita `rpmbuild` (`sudo apt install rpm`) y `unshare`.
+
+Para repetir solo el `.rpm`, sin volver a compilar el AppImage ni el `.deb`:
+
+```bash
+npm run dist:rpm
 ```
 
 Los artefactos quedan en `dist/`:
