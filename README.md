@@ -15,6 +15,38 @@ problemas.
 - `systemd-resolved` activo para el **modo DNS seguro**. Si no está activo, usa el modo **Hosts**.
 - No hace falta instalar Valet, nginx ni Composer a mano: la pestaña **Instalación** lo hace desde el panel.
 
+## Instalación
+
+Descarga el paquete con `curl` desde la publicación `v0.1.0` e instálalo:
+
+```bash
+# AppImage: portable, sin instalar nada
+curl -fLO "https://github.com/LC-jhony/valet-dashboard/releases/download/v0.1.0/Valet%20Dashboard-0.1.0.AppImage"
+chmod +x "Valet Dashboard-0.1.0.AppImage" && ./"Valet Dashboard-0.1.0.AppImage"
+```
+
+```bash
+# Debian, Ubuntu y derivados
+curl -fLO https://github.com/LC-jhony/valet-dashboard/releases/download/v0.1.0/valet-dashboard_0.1.0_amd64.deb
+sudo apt install ./valet-dashboard_0.1.0_amd64.deb
+```
+
+```bash
+# Fedora, RHEL y derivados
+curl -fLO https://github.com/LC-jhony/valet-dashboard/releases/download/v0.1.0/valet-dashboard-0.1.0.x86_64.rpm
+sudo dnf install ./valet-dashboard-0.1.0.x86_64.rpm
+```
+
+Puedes comprobar la descarga antes de instalar:
+
+```bash
+curl -fsSLO https://github.com/LC-jhony/valet-dashboard/releases/download/v0.1.0/SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+Las URL llevan la versión en el nombre del fichero: al publicar otra versión hay que
+cambiarlas en este apartado.
+
 ## Uso
 ```bash
 npm install
