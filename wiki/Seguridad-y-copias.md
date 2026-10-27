@@ -79,9 +79,9 @@ rutas o paquetes. Aun así, el proceso principal valida los datos antes de usarl
 | Instalar paquetes (`apt`, `dnf`, `pacman`) | `pkexec` | Sí |
 | Iniciar, detener o reiniciar servicios | `pkexec systemctl` | Sí |
 | Validar nginx o Apache | `pkexec nginx -t`, `pkexec apache2ctl configtest` | Sí |
-| Escribir archivos de `/etc` | `pkexec cp` desde un temporal | Sí |
-| Aplicar DNS seguro u hosts | `pkexec bash ~/.valet-dashboard/bin/dns-helper.sh` | Sí |
-| Copia de seguridad del sistema | `pkexec bash ~/.valet-dashboard/bin/backup.sh` | Sí |
+| Escribir archivos de `/etc` | `pkexec tee`, con el contenido por la entrada estándar | Sí |
+| Aplicar DNS seguro u hosts | `pkexec /usr/local/libexec/valet-dashboard/dns-helper.sh` | Sí |
+| Copia de seguridad del sistema | `pkexec /usr/local/libexec/valet-dashboard/backup.sh` | Sí |
 | `valet install`, `valet secure`, `valet use` | `valet` como tu usuario | Valet eleva lo necesario con `sudo` |
 | `valet link` al crear un proyecto | `valet` como tu usuario | Normalmente no; el enlace se crea en `~/.valet/Sites` |
 
@@ -91,17 +91,26 @@ el modelo de permisos de Valet.
 
 ### Ayudante de contraseña
 
-En `~/.valet-dashboard/bin/` se crean:
+En `~/.valet-dashboard/bin/` se crean dos scripts que se ejecutan **como tu usuario**:
 
 - `askpass`: muestra un diálogo con `zenity` o, si no está, `kdialog`.
 - `sudo`: envuelve las llamadas de Valet que usan `sudo env ...` y propaga la variable
   `VALET_DASHBOARD_SAFE_DNS`.
-- `dns-helper.sh`: aplica o retira el DNS seguro/hosts.
-- `backup.sh`: copia la configuración del sistema.
 
-Los scripts se crean con permisos restringidos (`0700` para los helpers de instalación,
-`0755` para `askpass` y `sudo`). La contraseña **no se guarda**: se pide en cada operación
-que la necesite y se pasa a `sudo` mediante `SUDO_ASKPASS`.
+La contraseña **no se guarda**: se pide en cada operación que la necesite y se pasa a `sudo`
+mediante `SUDO_ASKPASS`.
+
+### Ayudantes de root
+
+`dns-helper.sh` y `backup.sh` se ejecutan **como root**, así que viven fuera de tu carpeta:
+`/usr/local/libexec/valet-dashboard/`, con dueño `root`, permisos `0755` y sin escritura para
+el resto. Si estuvieran en tu `home`, cualquiera podría cambiarlos entre el diálogo de polkit y
+la ejecución y obtener root.
+
+Los dos empiezan comprobando que son root y que el destino de la copia cuelga de
+`~/.valet-dashboard/backups`, con el camino ya resuelto con `readlink -f`. Así un enlace
+simbólico en tu `home` no puede hacer que root escriba en `/etc` ni que ceda la propiedad de
+archivos del sistema. Las copias se crean con `0700` y `chown -R -h`, que no sigue enlaces.
 
 Si no hay `zenity` ni `kdialog`, el ayudante termina con error. Si no hay agente polkit, el
 diálogo de `pkexec` no aparece y la operación falla.
@@ -145,6 +154,8 @@ La fecha tiene formato ISO con `:` y `.` sustituidos por `-`, por ejemplo
 | `dns-remove` | Antes de retirar el DNS del panel | Configuración de red y DNS |
 | `nginx` | Al guardar puertos de nginx | Solo los archivos modificados |
 | `apache` | Al guardar puertos de Apache | Solo los archivos modificados |
+| `env` | Al configurar el `.env` de Laravel desde **Correo** | Copia del `.env` del sitio |
+| `php` | Al cambiar `sendmail_path` desde **Correo** | Copia de `fpm/php.ini` y `cli/php.ini` |
 
 ### Copia `system`
 
@@ -217,6 +228,10 @@ activo.
 - Configuración de cortafuegos.
 - Registros del sistema.
 - Los ajustes visuales del panel (están en el almacenamiento de Electron).
+- El buzón de Mailpit (`~/.valet-dashboard/mailpit/mailpit.db`) no se copia con las copias
+  de sistema; usa **Vaciar buzón** desde [Correo](Correo) cuando no lo necesites.
+- La configuración de Mailpit (`~/.config/valet-dashboard/mailpit.json`, auth, TLS y YAML)
+  tampoco se copia automáticamente; si quieres conservarla, cópiala a mano.
 
 ### Conservación y restauración
 
@@ -240,7 +255,13 @@ activo.
 |---|---|
 | `~/.valet-dashboard/config.json` | Puertos HTTP/HTTPS de nginx y Apache guardados por el panel |
 | `~/.valet-dashboard/backups/` | Copias descritas arriba |
-| `~/.valet-dashboard/bin/` | `askpass`, `sudo`, `dns-helper.sh`, `backup.sh` |
+| `~/.valet-dashboard/bin/` | `askpass`, `sudo`, `mailpit` y `mailpit.prev` |
+| `/usr/local/libexec/valet-dashboard/` | `dns-helper.sh` y `backup.sh`, propiedad de `root` |
+| `~/.valet-dashboard/mailpit/` | Buzón SQLite de Mailpit |
+| `~/.config/valet-dashboard/mailpit.json` | Configuración de Mailpit (incluye token de GitHub y credenciales de auth) |
+| `~/.config/valet-dashboard/mailpit.env` | Variables `MP_*` leídas por systemd |
+| `~/.config/valet-dashboard/mailpit/` | Archivos de contraseñas, TLS y YAML (`0600`/`0644`) |
+| `~/.config/systemd/user/valet-dashboard-mailpit.service` | Servicio de usuario de Mailpit |
 | `~/.valet-dashboard/hosts-generated` | Borrador del bloque de `/etc/hosts` para el modo Hosts |
 | `~/.config/valet-dashboard/composer/` | Composer aislado y paquete de Valet |
 | `~/.config/Valet Dashboard/` | Datos de Electron: ajustes, almacenamiento local y caché (ruta habitual) |
@@ -261,6 +282,7 @@ activo.
 - La aplicación no abre conexiones por sí sola, salvo:
   - El gestor de paquetes al instalar dependencias.
   - Composer al descargar Valet y sus dependencias.
+  - GitHub al consultar o descargar releases de Mailpit.
   - El navegador cuando pulsas **Abrir**.
 - Los registros de instalación se muestran en memoria y se limitan a los últimos 60 000
   caracteres. No se escriben en disco.
@@ -278,6 +300,22 @@ activo.
 | **Copias sensibles** | Pueden contener configuración de red y rutas | Restringe permisos y bórralas cuando ya no las necesites |
 | **Servicios detenidos** | Detener nginx, PHP-FPM, DNS o una base de datos afecta a los sitios y aplicaciones | Comprueba el estado antes de detener |
 | **Certificados** | `valet secure` crea certificados que el navegador puede no confiar | Es normal ver una advertencia; no desactives la verificación TLS |
+| **Buzón de Mailpit** | Puede contener correo real con tokens, enlaces mágicos y datos personales | Mantenlo en `127.0.0.1`, vacíalo a menudo y bórralo al desinstalar |
+| **Credenciales de Mailpit** | `mailpit.json` guarda el token de GitHub y las contraseñas de auth | El archivo se escribe con permisos `0600`; no lo compartas |
+
+## Avisos de `npm audit`
+
+`npm audit --omit=dev` no encuentra vulnerabilidades: la aplicación no tiene dependencias de
+ejecución; todo lo que declara `package.json` es de desarrollo.
+
+El `npm audit` completo informa de avisos en la cadena de herramientas (`tinypool`, que usa
+Vitest, y `node-gyp`, `cacache` y `tar`, que usa electron-builder). Resolverlos pide Vitest 5, que
+a su vez exige Vite 6, y el panel compila con Vite 5. Se aceptan con este razonamiento:
+
+- solo se ejecutan al compilar o al probar, nunca en la aplicación distribuida;
+- sus opciones no las controla nadie de fuera: salen de este repositorio.
+
+Cuando la cadena de compilación suba a Vite 6, actualiza Vitest y vuelve a ejecutar `npm audit`.
 
 ## Desinstalación y datos
 
@@ -295,6 +333,10 @@ No elimina:
 - Los ajustes visuales de Electron.
 - Un Valet externo detectado.
 - Los restos de un DNS clásico instalado antes.
+
+Mailpit se desinstala desde **Correo → Integraciones → Desinstalar Mailpit**. Esa acción
+detiene y elimina la unidad y el binario gestionado, pero conserva la configuración y el
+buzón salvo que marques **Borrar también los correos almacenados**.
 
 El panel no borra por separado `/usr/local/bin/valet`; lo que haga `valet uninstall` con ese
 archivo queda fuera del control del dashboard. Si usaste el modo Clásico, revisa los restos
@@ -317,11 +359,14 @@ habituales:
 6. Antes de cambiar puertos, comprueba qué proceso los ocupa.
 7. No detengas `valet-dashboard-dns` si usas el modo Seguro.
 8. Si algo falla, usa **Reparar instalación** antes de editar archivos a mano.
+9. Activa autenticación y TLS en Mailpit si lo expones fuera de `127.0.0.1`; en desarrollo
+   local, mantén el valor por defecto.
 
 ## Relacionado
 
 - [Instalación](Instalacion)
 - [Puertos](Puertos)
 - [Servicios](Servicios)
+- [Correo](Correo)
 - [Solución de problemas](Solucion-de-problemas)
 - [Arquitectura](Arquitectura)

@@ -145,6 +145,10 @@ del panel lateral.
 
 ## M
 
+**Mailpit**
+Servidor de correo de desarrollo que captura mensajes sin entregarlos. El panel lo instala
+en la pestaña [Correo](Correo), lo ejecuta con `systemctl --user` y embebe su interfaz web.
+
 **Min**
 Paleta visual del panel de tonos neutros y acento azul.
 
@@ -179,6 +183,10 @@ un diálogo de autenticación. El panel la usa para paquetes, servicios, DNS y a
 **Polkit**
 Sistema de autorización de Linux. Proporciona el diálogo gráfico que ves cuando el panel
 pide permisos de administrador.
+
+**POP3**
+Protocolo de descarga de correo. Mailpit expone un servidor POP3 opcional, por defecto en
+`127.0.0.1:1110`.
 
 **Puerto reservado**
 Puerto que el panel no permite usar para nginx o Apache: `53` (DNS), `67` y `68` (DHCP),
@@ -220,6 +228,10 @@ en el botón **Abrir**, con una URL calculada en el proceso principal.
 **Stub resolver**
 Escucha de systemd-resolved en `127.0.0.53`. El modo Seguro espera que `/etc/resolv.conf`
 apunte ahí.
+
+**SMTP**
+Protocolo de envío de correo. Mailpit escucha SMTP en `127.0.0.1:1025` y las aplicaciones
+Laravel o PHP se conectan ahí para que los mensajes queden capturados.
 
 **`sudo` auxiliar**
 Envoltorio que crea el panel para que Valet use `sudo` con `SUDO_ASKPASS` sin abrir una

@@ -10,7 +10,7 @@ configuración del sistema: solo afecta a cómo se ve la aplicación.
 - Cierra con **Cerrar**, con `Esc` o haciendo clic en el fondo oscuro.
 - Los cambios se aplican **al instante** y se guardan solos. No hay botón **Guardar** ni
   **Cancelar**.
-- Mientras el diálogo está abierto, los atajos de navegación (`Ctrl+1`…`Ctrl+5`, `Ctrl+B`)
+- Mientras el diálogo está abierto, los atajos de navegación (`Ctrl+1`…`Ctrl+6`, `Ctrl+B`)
   no se procesan; `Esc` sigue cerrando el diálogo.
 
 ## Tema

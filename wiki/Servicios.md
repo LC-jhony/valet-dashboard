@@ -33,6 +33,9 @@ Se descartan los alias. El estado se consulta con `systemctl is-active`. Por eso
 - Un servicio que existe pero está enmascarado puede aparecer como detenido.
 - Los servicios de usuario (`systemctl --user`) no se gestionan.
 
+Mailpit es la excepción: se ejecuta como servicio de usuario y se gestiona desde la
+pestaña [Correo](Correo), no desde esta lista.
+
 ## Panel lateral
 
 Muestra:
@@ -117,6 +120,17 @@ El panel no los instala ni los configura. Solo permite iniciar, detener o reinic
 que ya existan en el sistema. Detener una base de datos desconecta a las aplicaciones que
 la usen.
 
+### Mailpit
+
+No aparece en esta lista porque es una unidad de **usuario**. Se instala, configura y
+controla desde [Correo](Correo). Para gestionarlo en terminal:
+
+```bash
+systemctl --user status valet-dashboard-mailpit
+systemctl --user restart valet-dashboard-mailpit
+journalctl --user -u valet-dashboard-mailpit -n 100 --no-pager
+```
+
 ## Errores habituales
 
 | Mensaje | Causa | Qué hacer |
@@ -149,7 +163,8 @@ systemctl list-unit-files 'php*-fpm.service'
 - No habilita ni deshabilita servicios al arranque.
 - No muestra registros, consumo de CPU/memoria ni tiempos de arranque.
 - No permite editar unidades, máscaras ni dependencias.
-- No gestiona servicios de usuario ni contenedores Docker.
+- No gestiona servicios de usuario ni contenedores Docker. Mailpit (usuario) se gestiona
+  en [Correo](Correo).
 - No instala servicios nuevos.
 - No reinicia automáticamente servicios dependientes.
 - No confirma antes de detener un servicio.
@@ -158,5 +173,6 @@ systemctl list-unit-files 'php*-fpm.service'
 
 - [Puertos](Puertos)
 - [PHP](PHP)
+- [Correo](Correo)
 - [Instalación](Instalacion)
 - [Solución de problemas](Solucion-de-problemas)

@@ -23,10 +23,10 @@ actividad, panel lateral contextual, área de trabajo y barra de estado.
 Está a la izquierda y contiene:
 
 - El logotipo del panel: al pulsarlo vuelve a **Sitios**.
-- **Sitios**, **PHP**, **Puertos**, **Servicios** e **Instalación**.
+- **Sitios**, **PHP**, **Puertos**, **Servicios**, **Instalación** y **Correo**.
 - **Ajustes**, al pie.
 
-Cada botón muestra su nombre y su atajo (`Ctrl+1`…`Ctrl+5`, `Ctrl+,`) al pasar el ratón.
+Cada botón muestra su nombre y su atajo (`Ctrl+1`…`Ctrl+6`, `Ctrl+,`) al pasar el ratón.
 La sección activa queda resaltada con el color de acento.
 
 Al hacer clic en la sección que ya está activa, el panel lateral se oculta o se muestra.
@@ -42,6 +42,7 @@ Es contextual: su contenido cambia según la sección.
 | **Puertos** | Tarjetas de Valet/nginx, Apache y uso de puertos; al pulsarlas se desplaza la página a esa sección |
 | **Servicios** | Lista de servicios con estado activo/detenido y resumen |
 | **Instalación** | Sistema, gestor de paquetes, herramientas, red/DNS, conflictos y advertencias |
+| **Correo** | Estado de Mailpit, endpoints UI/SMTP/POP3, mensajes, tamaño de la base y avisos |
 
 ### Acciones del panel
 
@@ -82,6 +83,7 @@ Muestra, de izquierda a derecha:
 - **Puertos**: HTTP/HTTPS configurados, cuando se han cargado.
 - **Sitios**: número total, cuando se han cargado.
 - **Servicios**: activos/total, cuando se han cargado.
+- **Mailpit**: punto verde y puerto de la UI si está capturando correo; gris si está detenido.
 - **Tema**: botón sol/luna para cambiar entre claro y oscuro.
 
 Los datos de Puertos y Servicios aparecen después de visitar esas secciones, porque se
@@ -98,6 +100,7 @@ cargan bajo demanda. Sitios y PHP se cargan al iniciar.
 | `Ctrl+3` | Puertos |
 | `Ctrl+4` | Servicios |
 | `Ctrl+5` | Instalación |
+| `Ctrl+6` | Correo |
 | `Esc` | Cerrar Ajustes; en pantallas pequeñas, cerrar el panel |
 
 También funciona `Cmd` en macOS. Los atajos se ignoran mientras el diálogo de Ajustes o de
@@ -115,6 +118,9 @@ Nuevo proyecto está abierto, salvo `Esc`.
 - **Instalación**: la página permanece montada aunque cambies de sección. Así el progreso
   y el registro no se pierden mientras la instalación está en curso. Aun así, no cierres
   la aplicación durante una operación.
+- **Correo**: la interfaz de Mailpit se muestra en una vista embebida que ocupa el área
+  principal. La vista se oculta al abrir **Configuración**, **Integraciones** o cambiar de
+  sección, y se vuelve a alinear al redimensionar la ventana o el panel lateral.
 
 ## Ventana
 
@@ -134,4 +140,5 @@ pantalla. Las confirmaciones destructivas usan el diálogo nativo del sistema.
 
 - [Ajustes](Ajustes)
 - [Sitios](Sitios)
+- [Correo](Correo)
 - [Instalación](Instalacion)

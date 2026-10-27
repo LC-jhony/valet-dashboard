@@ -57,17 +57,22 @@ src/
 │   ├── index.ts       Ventana, menú, registro de IPC y eventos
 │   ├── valet.ts       Sitios, proyectos Laravel, PHP, puertos y servicios
 │   ├── install.ts     Diagnóstico, instalación, DNS, backups y desinstalación
+│   ├── mailpit.ts     Ciclo de vida, descarga, systemd, health y API de Mailpit
+│   ├── mailpit-config.ts  Configuración, auth, TLS, env, YAML y unidad de Mailpit
+│   ├── mailpit-project.ts Integración con Laravel (.env) y sendmail de PHP
 │   ├── exec.ts        execFile, rutas de la app y helper de pkexec
 │   └── helpers.ts     askpass, envoltorio de sudo y entorno de Valet
 ├── preload/
 │   └── index.ts       contextBridge → window.api
 ├── shared/
-│   └── types.ts       Contrato IPC y tipos de datos
+│   ├── types.ts       Contrato IPC y tipos de datos
+│   └── mailpit.ts     Contrato y esquema de opciones MP_* de Mailpit
 └── renderer/
     ├── main.tsx       Punto de entrada; aplica ajustes antes de renderizar
     ├── App.tsx        Shell, páginas, paneles y barra de estado
     ├── CreateProjectDialog.tsx
     ├── SettingsDialog.tsx
+    ├── mail/          Página Correo, diálogos y controles de Mailpit
     ├── theme.ts       Ajustes, paletas, fuentes y persistencia
     ├── icons.tsx      Iconos de archivos y variantes claro/oscuro
     ├── ui-icons.tsx   Glifos SVG de la interfaz
@@ -107,6 +112,33 @@ src/
 - **Servicios**: filtra unidades permitidas y consulta su estado; ejecuta acciones con
   `pkexec systemctl`.
 
+### `src/main/mailpit-config.ts`
+
+- Define rutas: configuración, entorno, auth, TLS, YAML, binario y unidad.
+- Carga, valida y guarda `mailpit.json`; expande `~` y limita claves a `MP_*`.
+- Genera `mailpit.env` con comillas seguras para systemd.
+- Escribe archivos de contraseñas (bcrypt con `htpasswd` o texto plano `0600`).
+- Genera el certificado autofirmado con `openssl`.
+- Escribe la unidad `valet-dashboard-mailpit.service` y los YAML auxiliares.
+
+### `src/main/mailpit.ts`
+
+- Detecta el binario gestionado o del sistema y consulta su versión.
+- Descarga el release de GitHub, verifica el `digest` SHA-256 y extrae el binario con
+  `tar`; conserva `mailpit.prev` para revertir.
+- Arranca, detiene y reinicia la unidad con `systemctl --user`; habilita el arranque si se
+  pide.
+- Aplica la configuración, espera a `/livez` y revierte si no queda saludable.
+- Consulta `/api/v1/info`, vacía el buzón, envía correo de prueba y lee el registro.
+- Emite eventos de estado, progreso y registro al renderer.
+
+### `src/main/mailpit-project.ts`
+
+- Escribe `MAIL_*` en el `.env` del sitio con copia previa y sin tocar el resto de claves.
+- Lee y escribe `sendmail_path` en `fpm/php.ini` y `cli/php.ini` mediante `pkexec`.
+- Guarda copias, valida con `php-fpmX.Y -t`, reinicia PHP-FPM y revierte si falla.
+- Prueba `mail()` y comprueba que el contador de mensajes de Mailpit aumenta.
+
 ### `src/main/install.ts`
 
 - **Diagnóstico** (`checkEnv`): distribución, gestor de paquetes, herramientas, puertos
@@ -143,19 +175,26 @@ src/
 ### `src/preload/index.ts`
 
 Traduce cada método de `Api` a `ipcRenderer.invoke` con un canal fijo. Para los eventos de
-instalación se suscribe a `install:event`, y para los de creación de proyectos a
-`sites:create-event`; en ambos casos devuelve una función para desuscribirse.
+instalación se suscribe a `install:event`, para los de creación de proyectos a
+`sites:create-event` y para los de Mailpit a `mailpit:event`; en todos los casos devuelve
+una función para desuscribirse. `mailpit:view` es un canal `send` para mover y ocultar la
+vista embebida, y `mailpit:shortcut` reenvía los atajos capturados dentro de Mailpit.
 
 ### `src/shared/types.ts`
 
 Es el contrato único entre main, preload y renderer. Incluye `Api`, `Site`, `ProjectInfo`,
 `CreateProjectOptions`, `CreateProjectEvent`, `PortsInfo`, `PhpInfo`, `Service`, `Env`,
-`InstallOptions` e `InstallEvent`.
+`InstallOptions` e `InstallEvent`. `Api.mailpit` reexporta el contrato de
+`src/shared/mailpit.ts`, que también define los grupos, campos, defaults y helpers del
+esquema `MP_*`.
 
 ### `src/renderer`
 
-- `App.tsx` contiene el shell y las cinco páginas: Sitios, PHP, Puertos, Servicios e
-  Instalación, además de los paneles laterales y la barra de estado.
+- `App.tsx` contiene el shell y las seis páginas: Sitios, PHP, Puertos, Servicios,
+  Instalación y Correo, además de los paneles laterales y la barra de estado.
+- `mail/` contiene `MailpitPage.tsx` (página y vista embebida), `MailpitSettingsDialog.tsx`
+  (formulario `MP_*`, auth, TLS y YAML), `MailpitIntegrationsDialog.tsx` (Laravel, PHP,
+  registro y desinstalación) y `options.tsx` (controles del esquema).
 - `theme.ts` define los ajustes, las paletas, las fuentes y su persistencia.
 - `CreateProjectDialog.tsx` es el diálogo de creación de proyectos Laravel: formulario,
   registro en vivo, error y éxito.
@@ -194,6 +233,25 @@ Todos los canales se registran en `src/main/index.ts`. La API del renderer está
 | `install:repairDns` | `mode` | `void` | Aplica DNS Seguro o Hosts |
 | `install:syncHosts` | — | `void` | Atajo de `repairDns('hosts')` |
 | `install:event` | — | — | Evento main → renderer: plan, paso o registro |
+| `mailpit:info` | — | `MailpitInfo` | Estado, versión, endpoints, métricas y avisos |
+| `mailpit:config` | — | `MailpitConfig` | Lee `mailpit.json` |
+| `mailpit:save` | `MailpitConfig` | `MailpitInfo` | Valida, escribe env/unidad y reinicia con rollback |
+| `mailpit:start` / `stop` / `restart` | — | `MailpitInfo` | Controla la unidad de usuario |
+| `mailpit:install` | — | `MailpitInfo` | Descarga, verifica e instala; emite eventos |
+| `mailpit:useSystem` | `path` | `MailpitInfo` | Cambia al binario del sistema |
+| `mailpit:uninstall` | `deleteData` | `void` | Detiene, deshabilita y elimina unidad/binario |
+| `mailpit:logs` | `lines?` | `string` | Archivo configurado o `journalctl --user` |
+| `mailpit:clearMessages` | — | `void` | `DELETE /api/v1/messages` |
+| `mailpit:sendTest` | `to` | `void` | `POST /api/v1/send` |
+| `mailpit:openExternal` | — | `void` | Abre la UI en el navegador |
+| `mailpit:auxiliary` / `writeAuxiliary` | `kind`, `content` | `MailpitAuxFile[]` | Lee o guarda Relay, Forward y Etiquetas |
+| `mailpit:configureEnv` | `site` | `MailpitProjectEnvResult` | Escribe `MAIL_*` en el `.env` |
+| `mailpit:sendmailInfo` | — | `MailpitSendmailInfo[]` | Estado de `sendmail_path` por versión |
+| `mailpit:setPhpSendmail` | `version`, `enable` | `void` | Edita `php.ini` con `pkexec` y revierte |
+| `mailpit:testPhpMail` | `version`, `to` | `void` | Envía con `mail()` y comprueba el contador |
+| `mailpit:view` | `rect`, `visible`, `url?` | — | Mueve u oculta la `WebContentsView` |
+| `mailpit:event` | — | — | Evento main → renderer: estado, progreso o registro |
+| `mailpit:shortcut` | — | — | Atajo capturado dentro de Mailpit (`1`…`6`, `b`, `,`) |
 
 No hay canales para leer o escribir archivos arbitrarios, ejecutar comandos genéricos ni
 abrir una URL cualquiera. Los ajustes visuales no pasan por IPC: se guardan en
@@ -207,7 +265,7 @@ abrir una URL cualquiera. Los ajustes visuales no pasan por IPC: se guardan en
 2. Cuando Electron está listo, elimina el menú y crea la ventana.
 3. El preload expone `window.api`.
 4. `renderer/main.tsx` aplica los ajustes guardados antes del primer render.
-5. `App` arranca en **Sitios**; Sitios y PHP se cargan al inicio.
+5. `App` arranca en **Sitios**; Sitios, PHP y el estado de Mailpit se cargan al inicio.
 6. Puertos, Servicios e Instalación se cargan al entrar en su pestaña.
 7. La página de Instalación se monta una vez y se oculta con `hidden`; así conserva el
    progreso y el registro al cambiar de sección.
@@ -279,6 +337,26 @@ Renderer → install:start(opciones)
   → install:event llega al renderer y actualiza progreso/registro
 ```
 
+### Correo y vista embebida
+
+```text
+Renderer → mailpit:info
+  → main lee mailpit.json, resuelve el binario y consulta systemctl --user
+  → si está activo, consulta /api/v1/info (versión, mensajes, tamaño, uptime)
+  → devuelve MailpitInfo
+
+Renderer → mailpit:view({x, y, width, height}, visible, url)
+  → main crea o reutiliza una WebContentsView con partición persist:mailpit
+  → carga la UI de Mailpit y la muestra solo en ese rectángulo
+  → login/certificate-error resuelven auth y el certificado autofirmado
+
+Renderer → mailpit:save(config)
+  → valida opciones, puertos y TLS
+  → escribe mailpit.json, mailpit.env y la unidad
+  → systemctl --user daemon-reload + restart
+  → espera /livez; si falla, restaura configuración, env y binario
+```
+
 ## Decisiones de diseño
 
 - **Composer aislado**: evita conflictos con el Composer global (por ejemplo, Illuminate
@@ -291,6 +369,10 @@ Renderer → install:start(opciones)
   una validación previa.
 - **Reversión**: los cambios de puertos se restauran si la validación o la recarga fallan.
 - **Sin shell**: todos los comandos usan arrays de argumentos.
+- **Mailpit como servicio de usuario**: no depende de Valet ni del panel; se controla con
+  `systemctl --user` y se embebe con `WebContentsView` en lugar de `<webview>` o `iframe`.
+- **Descarga verificada**: el binario de Mailpit se compara con el `digest` SHA-256 que
+  publica GitHub antes de reemplazar el anterior.
 - **Listas permitidas**: servicios, acciones, modos DNS y formatos se validan en main.
 - **Carpeta aparcada exacta**: solo si el destino es la raíz de una ruta `parked` el
   proyecto aparece solo; en cualquier otro caso se ejecuta `valet link`.
@@ -327,7 +409,8 @@ Buenas prácticas del proyecto:
 
 ## Limitaciones de la arquitectura
 
-- No hay tests automatizados ni lint configurado; la verificación es `tsc` y el build.
+- No hay tests automatizados de la interfaz ni lint configurado; la verificación es `tsc`,
+  el build y `go test ./...` para el CLI `devenv`.
 - No hay registro persistente ni telemetría.
 - No hay actualización automática.
 - El proceso principal concentra toda la lógica del sistema; no hay un servicio separado.

@@ -30,11 +30,11 @@ se empaquetan en el renderer.
 |---|---|
 | `npm run dev` | Arranca Electron en modo desarrollo con recarga |
 | `npm run typecheck` | Ejecuta `tsc --noEmit` con `strict: true` |
+| `npm test` | Ejecuta las pruebas unitarias con Vitest (`vitest run`) |
 | `npm run build` | Compila main, preload y renderer en `out/` |
-| `npm run dist` | Compila y genera AppImage, `.deb` y `.rpm` en `dist/` |
+| `npm run dist` | Comprueba tipos, prueba, compila y genera AppImage, `.deb` y `.rpm` en `dist/` |
 
-No hay script de tests ni de lint. La verificación automática disponible es el chequeo de
-tipos y la compilación.
+No hay linter. La verificación automática es el chequeo de tipos, las pruebas y la compilación.
 
 ## Desarrollo
 
@@ -73,7 +73,15 @@ Antes de dar por buena una cambio:
 
 ```bash
 npm run typecheck
+npm test
 npm run build
+```
+
+Para el CLI Go, desde `devenv/`:
+
+```bash
+go build ./...
+go test ./...
 ```
 
 `typecheck` usa el `tsconfig.json` del proyecto:
@@ -86,7 +94,22 @@ npm run build
 - `noEmit: true`
 - Incluye `src` y `electron.vite.config.ts`
 
-El build debe terminar sin errores. No hay una suite de tests que ejecutar.
+El build debe terminar sin errores.
+
+Las pruebas cubren las piezas donde un error no se ve en pantalla:
+
+| Archivo | Qué comprueba |
+|---|---|
+| `src/main/safe-path.test.ts` | Confinamiento de rutas a sus directorios permitidos |
+| `src/main/window-guard.test.ts` | Qué URL cuenta como parte de la aplicación |
+| `src/main/mailpit-config.test.ts` | Política de rutas de la configuración de Mailpit |
+| `src/main/htpasswd.test.ts` | Contraseña por entrada estándar y fallo sin hash |
+| `src/main/root-scripts.test.ts` | Sintaxis de los ayudantes de root y rechazo de destinos y enlaces |
+| `src/renderer/theme.test.ts` | Contraste WCAG del texto sobre el color de acento |
+
+El CLI `devenv` tiene además sus propias pruebas en Go. `.github/workflows/ci.yml` ejecuta
+todo en cada push y en cada pull request: tipos, pruebas, build, `gofmt`, `go vet` y
+`go test`.
 
 ### Comprobación manual
 
@@ -99,6 +122,9 @@ No hay tests automatizados, así que conviene revisar a mano las áreas afectada
 - **Servicios**: lista filtrada, estados, inicio, parada, reinicio y errores de polkit.
 - **Instalación**: diagnóstico, advertencias, opciones, progreso, registro, reparar DNS,
   sincronizar hosts y desinstalar.
+- **Correo**: instalación y actualización, arranque/parada, UI embebida, atajos dentro de
+  Mailpit, auth, TLS, guardado con reversión, `.env` de Laravel, `sendmail_path` y
+  `devenv mail --env --open`.
 - **Ajustes**: tema, paleta, iconos, fuente, tamaño, vista compacta, reinicio y
   persistencia.
 - **Interfaz**: atajos, panel lateral, redimensionado, pantallas pequeñas y barra de estado.
@@ -135,8 +161,9 @@ El registro de creación solo vive en el diálogo y no se guarda en disco.
 ```text
 src/main       Lógica del sistema y ventana
 src/preload    Puente tipado
-src/shared     Contrato IPC
+src/shared     Contrato IPC y esquema MP_*
 src/renderer   Interfaz React
+devenv         CLI Go (servicios, PHP, nginx y Mailpit)
 resources      Icono de la ventana
 build/icons    Iconos del paquete (16 a 1024 px)
 wiki           Esta documentación

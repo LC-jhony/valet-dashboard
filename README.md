@@ -1,12 +1,12 @@
 # Valet Dashboard
 
 Panel de escritorio (Electron + React 19 + TypeScript) para instalar y gestionar Valet en Linux:
-sitios, creación de proyectos Laravel, versiones de PHP, puertos de nginx y servicios del
-sistema.
+sitios, creación de proyectos Laravel, versiones de PHP, puertos de nginx, servicios del
+sistema y correo de desarrollo con Mailpit.
 
 ## Documentación
 La guía completa está en la [wiki](wiki/Home.md): instalación, interfaz, sitios, PHP,
-puertos, servicios, ajustes, seguridad y copias, arquitectura, desarrollo y solución de
+puertos, servicios, correo, ajustes, seguridad y copias, arquitectura, desarrollo y solución de
 problemas.
 
 ## Requisitos
@@ -19,8 +19,12 @@ problemas.
 ```bash
 npm install
 npm run dev        # desarrollo
+npm test           # pruebas unitarias (Vitest)
 npm run dist       # AppImage + .deb + .rpm en dist/
 ```
+
+Cada push y cada pull request pasa por `.github/workflows/ci.yml`: tipos, pruebas, build,
+`gofmt`, `go vet` y `go test` del CLI `devenv`.
 
 ## Instalación desde el panel
 La pestaña **Instalación** detecta el sistema y ejecuta pasos idempotentes con registro en vivo:
@@ -60,6 +64,30 @@ panel:
   dominio nuevo resuelva.
 - La creación no se puede cancelar a mitad; si falla, revisa el registro del diálogo.
 
+## Correo con Mailpit
+La pestaña **Correo** (`Ctrl+6`) instala Mailpit como **servicio de usuario** (`systemctl
+--user`) sin reimplementar su interfaz: la web oficial se embebe con `WebContentsView`.
+
+- Descarga el binario oficial de GitHub, verifica el SHA-256 y permite usar un `mailpit`
+  del sistema si ya existe.
+- Formulario por grupos para las opciones `MP_*`, autenticación Basic para UI/SMTP/POP3,
+  TLS compartido (autofirmado o propio) y editor de Relay/Forward/Etiquetas.
+- Al guardar, reinicia y valida con `/livez`; si falla, revierte configuración, entorno y
+  binario.
+- **Integraciones** escribe `MAIL_*` en el `.env` de un sitio Laravel (con copia previa) y
+  configura `sendmail_path` de PHP para que `mail()` entregue en Mailpit.
+- Puertos por defecto: `127.0.0.1:8025` (UI/API), `127.0.0.1:1025` (SMTP) y
+  `127.0.0.1:1110` (POP3).
+
+En terminal, el CLI Go ofrece el mismo servicio:
+
+```bash
+devenv mail --env --open
+devenv service start mailpit
+```
+
+Detalles en [Correo](wiki/Correo.md).
+
 ## Modos DNS
 - **Seguro (recomendado)**: `dnsmasq` escucha solo en `127.0.0.1:5354` y
   `systemd-resolved` recibe una ruta `~test` en `/etc/systemd/resolved.conf.d/valet-dashboard.conf`.
@@ -80,18 +108,21 @@ y que el DNS general siga funcionando; si falla, retira su configuración y rein
 ## Estructura
 - `src/main`: proceso principal; comandos con `execFile` y arrays de argumentos (sin shell).
   Los paquetes, copias y DNS usan `pkexec`; Valet usa su propio `sudo` con `askpass`.
+  Mailpit descarga su binario desde GitHub con verificación SHA-256 y lo ejecuta con
+  `systemctl --user`.
 - `src/preload`: API mínima expuesta con `contextBridge` (`window.api`).
-- `src/shared/types.ts`: contrato IPC tipado.
-- `src/renderer`: interfaz React.
+- `src/shared/types.ts`: contrato IPC tipado; `src/shared/mailpit.ts` define el esquema `MP_*`.
+- `src/renderer`: interfaz React; la bandeja de Mailpit se embebe con `WebContentsView`.
 
 ## Interfaz
 La ventana usa un shell tipo VS Code: una **barra de actividad** a la izquierda con las
-secciones (Sitios, PHP, Puertos, Servicios e Instalación) y **Ajustes** al pie; un
+secciones (Sitios, PHP, Puertos, Servicios, Instalación y Correo) y **Ajustes** al pie; un
 **panel lateral contextual**; y una **barra de estado** inferior con la versión de PHP,
-el recuento de sitios y, cuando se han cargado, los puertos y los servicios activos.
+el recuento de sitios y, cuando se han cargado, los puertos, los servicios activos y el
+estado de Mailpit.
 
 - Arrastra el borde derecho del panel para redimensionarlo (220–420 px). El ancho se recuerda.
-- `Ctrl+B` muestra u oculta el panel; `Ctrl+,` abre Ajustes; `Ctrl+1`…`Ctrl+5` cambia de sección.
+- `Ctrl+B` muestra u oculta el panel; `Ctrl+,` abre Ajustes; `Ctrl+1`…`Ctrl+6` cambia de sección.
 - En **Sitios**, **Nuevo proyecto** abre el diálogo de creación con registro de Composer.
 - Por debajo de 900 px el panel se convierte en una capa superpuesta.
 - La página de Instalación sigue activa al cambiar de sección: el progreso y el registro no se pierden.

@@ -15,6 +15,7 @@ Linux con `systemd`, `polkit` y, preferiblemente, NetworkManager.
 | **PHP** | Ver las versiones de PHP-FPM instaladas y cambiar la versión en uso | [PHP](PHP) |
 | **Puertos** | Cambiar puertos de nginx y Apache, ver puertos en escucha y detectar conflictos | [Puertos](Puertos) |
 | **Servicios** | Iniciar, detener y reiniciar nginx, Apache, DNS, PHP-FPM, MySQL, Redis, etc. | [Servicios](Servicios) |
+| **Correo** | Instalar Mailpit, abrir su interfaz embebida, configurar SMTP/POP3/TLS y conectar Laravel o WordPress | [Correo](Correo) |
 | **Ajustes** | Tema claro/oscuro, paletas, iconos, tipografía, tamaño de texto y vista compacta | [Ajustes](Ajustes) |
 | **Seguridad** | Copias de seguridad, reversión automática y modelo de permisos | [Seguridad y copias](Seguridad-y-copias) |
 
@@ -38,7 +39,7 @@ Linux con `systemd`, `polkit` y, preferiblemente, NetworkManager.
 
 ## La interfaz en 30 segundos
 
-- **Barra de actividad** (izquierda): Sitios, PHP, Puertos, Servicios, Instalación y Ajustes.
+- **Barra de actividad** (izquierda): Sitios, PHP, Puertos, Servicios, Instalación, Correo y Ajustes.
 - **Panel lateral contextual**: búsqueda de sitios, versiones PHP, tarjetas de puertos,
   lista de servicios o diagnóstico de instalación.
 - **Área principal**: la página de la sección con sus listas, formularios, botones y avisos.
@@ -58,6 +59,7 @@ Detalles en [Interfaz](Interfaz).
 | `Ctrl+3` | Ir a Puertos |
 | `Ctrl+4` | Ir a Servicios |
 | `Ctrl+5` | Ir a Instalación |
+| `Ctrl+6` | Ir a Correo |
 | `Esc` | Cerrar Ajustes o el panel lateral en pantallas pequeñas |
 
 En macOS también funciona `Cmd` en lugar de `Ctrl`. La app está orientada a Linux.
@@ -72,6 +74,10 @@ En macOS también funciona `Cmd` en lugar de `Ctrl`. La app está orientada a Li
 | `~/.valet-dashboard/config.json` | Puertos guardados por el panel |
 | `~/.valet-dashboard/backups/` | Copias de seguridad de sistema, DNS y puertos |
 | `~/.valet-dashboard/bin/` | Ayudantes de contraseña y scripts de DNS/backup |
+| `~/.valet-dashboard/mailpit/` | Buzón SQLite de Mailpit |
+| `~/.config/valet-dashboard/mailpit.json` | Configuración de Mailpit del panel |
+| `~/.config/valet-dashboard/mailpit/` | Auth, TLS y YAML de Mailpit |
+| `~/.config/systemd/user/valet-dashboard-mailpit.service` | Servicio de usuario de Mailpit |
 | `~/.config/valet-dashboard/composer/` | Composer aislado del panel |
 
 Más detalle en [Seguridad y copias](Seguridad-y-copias).
@@ -83,6 +89,8 @@ Más detalle en [Seguridad y copias](Seguridad-y-copias).
 - Crea proyectos Laravel nuevos, pero no elimina sitios, enlaces ni proxies ni registra
   carpetas existentes.
 - No instala servidores de bases de datos, Redis ni Apache; solo los gestiona si existen.
+- Mailpit se instala aparte, desde la pestaña **Correo**, y se ejecuta como servicio de
+  usuario; no forma parte de la instalación de Valet.
 - No tiene actualización automática ni botón para restaurar copias de seguridad.
 - El soporte de Apache está orientado a la ruta Debian `/etc/apache2`.
 - La instalación y la desinstalación automáticas están pensadas para el Valet aislado
@@ -98,6 +106,7 @@ Lista completa en [Solución de problemas](Solucion-de-problemas#limitaciones-co
 - [PHP](PHP)
 - [Puertos](Puertos)
 - [Servicios](Servicios)
+- [Correo](Correo)
 - [Ajustes](Ajustes)
 - [Seguridad y copias](Seguridad-y-copias)
 - [Solución de problemas](Solucion-de-problemas)
