@@ -5,7 +5,7 @@ export type GlyphName =
   | 'settings' | 'sun' | 'moon' | 'panel' | 'search' | 'refresh'
   | 'chevron' | 'check' | 'alert' | 'info' | 'lock' | 'unlock'
   | 'play' | 'stop' | 'restart' | 'terminal' | 'close' | 'copy'
-  | 'globe' | 'spinner' | 'plus'
+  | 'globe' | 'spinner' | 'plus' | 'mail'
 
 const glyphs: Record<GlyphName, ReactNode> = {
   sites: (
@@ -126,7 +126,13 @@ const glyphs: Record<GlyphName, ReactNode> = {
       <path d="M3.5 12h17M12 3.5c2.2 2.3 3.4 5.3 3.4 8.5s-1.2 6.2-3.4 8.5c-2.2-2.3-3.4-5.3-3.4-8.5S9.8 5.8 12 3.5Z" />
     </>
   ),
-  spinner: <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />
+  spinner: <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />,
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2.2" />
+      <path d="m3.9 6.6 8.1 6.2 8.1-6.2" />
+    </>
+  )
 }
 
 /** Iconos de interfaz monocromos; heredan el color del texto. */

@@ -3,15 +3,18 @@ import {
   type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode
 } from 'react'
 import type { DnsMode, Env, PhpInfo, PortsInfo, PortUsage, Service, Site } from '../shared/types'
+import type { MailpitInfo } from '../shared/mailpit'
 import { useResolvedMode, useSettings } from './theme'
 import { Icon, IconProvider, type IconName } from './icons'
 import { BrandLogo } from './BrandLogo'
 import { Glyph, type GlyphName } from './ui-icons'
+import { modalsOpen } from './Modal'
 import { SettingsDialog } from './SettingsDialog'
 import { CreateProjectDialog } from './CreateProjectDialog'
+import { MailpitPage, MailpitSidebar } from './mail/MailpitPage'
 import { errorMessage } from './errors'
 
-type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install'
+type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install' | 'mail'
 
 interface Section {
   id: Tab
@@ -25,7 +28,8 @@ const SECTIONS: Section[] = [
   { id: 'php', label: 'PHP', icon: 'php', hint: 'Versiones de php-fpm instaladas. Cambia la versión en uso con un clic.' },
   { id: 'ports', label: 'Puertos', icon: 'ports', hint: 'Puertos de Valet (nginx) y Apache, con validación y reversión automática.' },
   { id: 'services', label: 'Servicios', icon: 'services', hint: 'nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis y PostgreSQL vía systemctl.' },
-  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico.' }
+  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico.' },
+  { id: 'mail', label: 'Correo', icon: 'mail', hint: 'Mailpit captura el correo de desarrollo: interfaz web completa, SMTP, POP3, API y Relay.' }
 ]
 
 const KNOWN: Record<number, string> = { 53: 'DNS (dnsmasq)', 80: 'HTTP', 443: 'HTTPS', 3306: 'MySQL', 5354: 'DNS seguro (Valet Dashboard)', 6379: 'Redis' }
@@ -507,12 +511,13 @@ function ActivityBar({ tab, onSelect, onSettings }: {
   )
 }
 
-function StatusBar({ section, sites, php, ports, services, mode, onToggleTheme }: {
+function StatusBar({ section, sites, php, ports, services, mail, mode, onToggleTheme }: {
   section: string
   sites?: Site[]
   php?: PhpInfo
   ports?: PortsInfo
   services?: Service[]
+  mail?: MailpitInfo
   mode: 'light' | 'dark'
   onToggleTheme: () => void
 }) {
@@ -534,6 +539,11 @@ function StatusBar({ section, sites, php, ports, services, mode, onToggleTheme }
         {ports && <span className="status-item status-optional" title="Puertos HTTP/HTTPS">{ports.config.http}/{ports.config.https}</span>}
         {sites && <span className="status-item status-optional">{sites.length} sitios</span>}
         {services && <span className="status-item status-optional">{activeServices}/{services.length} servicios</span>}
+        {mail && (
+          <span className="status-item" title={mail.running ? 'Mailpit capturando correo' : 'Mailpit detenido'}>
+            <span className={`status-dot ${mail.running ? 'ok' : 'idle'}`} />Mailpit{mail.running ? ` :${mail.ports.ui}` : ''}
+          </span>
+        )}
         <button
           className="status-btn"
           onClick={onToggleTheme}
@@ -1194,6 +1204,7 @@ export default function App() {
   const ports = useResource(() => window.api.ports.scan(), tab === 'ports')
   const services = useResource(() => window.api.services.list(), tab === 'services')
   const env = useResource(() => window.api.install.check(), tab === 'install')
+  const mail = useResource(() => window.api.mailpit.info())
   const previousTab = useRef(tab)
 
   useEffect(() => {
@@ -1201,7 +1212,8 @@ export default function App() {
     previousTab.current = tab
     if (tab === 'sites') sites.reload()
     else if (tab === 'php') php.reload()
-  }, [tab, sites.reload, php.reload])
+    else if (tab === 'mail') mail.reload()
+  }, [tab, sites.reload, php.reload, mail.reload])
 
   const section = SECTIONS.find((s) => s.id === tab) ?? SECTIONS[0]
   const badge = tab === 'sites' && sites.data
@@ -1212,9 +1224,11 @@ export default function App() {
         ? `${ports.data.config.http}/${ports.data.config.https}`
         : tab === 'services' && services.data
           ? `${services.data.filter((s) => s.active).length}/${services.data.length}`
-          : undefined
-  const loading = tab === 'sites' ? sites.loading : tab === 'php' ? php.loading : tab === 'ports' ? ports.loading : tab === 'services' ? services.loading : env.loading
-  const reload = tab === 'sites' ? sites.reload : tab === 'php' ? php.reload : tab === 'ports' ? ports.reload : tab === 'services' ? services.reload : env.reload
+          : tab === 'mail' && mail.data
+            ? (mail.data.running ? String(mail.data.messages ?? 0) : 'off')
+            : undefined
+  const loading = tab === 'sites' ? sites.loading : tab === 'php' ? php.loading : tab === 'ports' ? ports.loading : tab === 'services' ? services.loading : tab === 'mail' ? mail.loading : env.loading
+  const reload = tab === 'sites' ? sites.reload : tab === 'php' ? php.reload : tab === 'ports' ? ports.reload : tab === 'services' ? services.reload : tab === 'mail' ? mail.reload : env.reload
 
   const refreshAll = useCallback(() => {
     sites.reload()
@@ -1222,7 +1236,8 @@ export default function App() {
     ports.reload()
     services.reload()
     env.reload()
-  }, [sites.reload, php.reload, ports.reload, services.reload, env.reload])
+    mail.reload()
+  }, [sites.reload, php.reload, ports.reload, services.reload, env.reload, mail.reload])
 
   const refreshServicesAndPorts = useCallback(() => {
     if (services.data) services.reload()
@@ -1291,7 +1306,9 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (settingsOpen || createOpen) return
+      // Cualquier diálogo abierto (incluidos los de correo) se queda con el
+      // teclado: si no, Ctrl+B o Ctrl+1 cambiaban la vista por detrás.
+      if (settingsOpen || createOpen || modalsOpen()) return
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault()
@@ -1303,7 +1320,7 @@ export default function App() {
         setSettingsOpen(true)
         return
       }
-      if (mod && /^[1-5]$/.test(e.key)) {
+      if (mod && /^[1-9]$/.test(e.key)) {
         const index = Number(e.key) - 1
         if (SECTIONS[index]) {
           e.preventDefault()
@@ -1316,6 +1333,15 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [settingsOpen, createOpen])
+
+  useEffect(() => window.api.mailpit.onShortcut((key) => {
+    const blocked = settingsOpen || createOpen || modalsOpen()
+    if (blocked) return
+    if (key === ',') { setSettingsOpen(true); return }
+    if (key === 'b') { setSidebarOpen((v) => !v); return }
+    const index = Number(key) - 1
+    if (Number.isInteger(index) && SECTIONS[index]) setTab(SECTIONS[index].id)
+  }), [settingsOpen, createOpen])
 
   return (
     <IconProvider theme={settings.iconTheme} mode={mode}>
@@ -1338,6 +1364,7 @@ export default function App() {
           {tab === 'ports' && <PortsSidebar r={ports} onNavigate={closeOnMobile} />}
           {tab === 'services' && <ServicesSidebar r={services} selected={selectedService} onSelect={pickService} />}
           {tab === 'install' && <InstallSidebar r={env} />}
+          {tab === 'mail' && <MailpitSidebar r={mail} />}
         </Sidebar>
         <div className="workarea">
           <header className="editorbar">
@@ -1365,6 +1392,7 @@ export default function App() {
             <div hidden={tab !== 'install'}>
               <Install r={env} onChanged={refreshAll} visible={tab === 'install'} />
             </div>
+            {tab === 'mail' && <MailpitPage r={mail} active={tab === 'mail'} overlay={settingsOpen || createOpen} />}
           </main>
         </div>
         <StatusBar
@@ -1373,6 +1401,7 @@ export default function App() {
           php={php.data}
           ports={ports.data}
           services={services.data}
+          mail={mail.data}
           mode={mode}
           onToggleTheme={toggleTheme}
         />

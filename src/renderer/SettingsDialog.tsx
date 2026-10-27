@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { DEFAULTS, PALETTES, useResolvedMode, type FontKey, type IconThemeId, type Mode, type PaletteId, type Settings } from './theme'
 import { ICON_THEMES, iconUrl } from './icons'
 import { Glyph } from './ui-icons'
+import { Modal } from './Modal'
 
 function Seg<T extends string>({ label, value, options, onChange }: {
   label: string; value: T; options: [T, ReactNode][]; onChange: (v: T) => void
@@ -16,13 +17,6 @@ function Seg<T extends string>({ label, value, options, onChange }: {
 }
 
 export function SettingsDialog({ s, set, onClose }: { s: Settings; set: (p: Partial<Settings>) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    ref.current?.focus()
-    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
   const mode = useResolvedMode(s.mode)
   const swatch = (p: PaletteId) => (
     <>
@@ -32,52 +26,50 @@ export function SettingsDialog({ s, set, onClose }: { s: Settings; set: (p: Part
     </>
   )
   return (
-    <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="st-title" tabIndex={-1} ref={ref}>
-        <header className="page-head">
-          <h1 id="st-title">Ajustes</h1>
-          <button className="btn ghost" onClick={onClose} aria-label="Cerrar ajustes">
-            <Glyph name="close" size={13} />Cerrar
-          </button>
-        </header>
+    <Modal labelledBy="st-title" onClose={onClose}>
+      <header className="page-head">
+        <h1 id="st-title">Ajustes</h1>
+        <button className="btn ghost" onClick={onClose} aria-label="Cerrar ajustes">
+          <Glyph name="close" size={13} />Cerrar
+        </button>
+      </header>
 
-        <div className="field"><span>Tema</span>
-          <Seg<Mode> label="Tema" value={s.mode} onChange={(mode) => set({ mode })}
-            options={[['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Oscuro']]} /></div>
+      <div className="field"><span>Tema</span>
+        <Seg<Mode> label="Tema" value={s.mode} onChange={(mode) => set({ mode })}
+          options={[['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Oscuro']]} /></div>
 
-        <div className="field"><span>Paleta</span>
-          <Seg<PaletteId> label="Paleta" value={s.palette} onChange={(palette) => set({ palette })}
-            options={[['carbon', swatch('carbon')], ['min', swatch('min')]]} /></div>
+      <div className="field"><span>Paleta</span>
+        <Seg<PaletteId> label="Paleta" value={s.palette} onChange={(palette) => set({ palette })}
+          options={[['carbon', swatch('carbon')], ['min', swatch('min')]]} /></div>
 
-        <div className="field"><span>Iconos de archivos</span>
-          <Seg<IconThemeId> label="Iconos de archivos" value={s.iconTheme} onChange={(iconTheme) => set({ iconTheme })}
-            options={ICON_THEMES.map((t) => [
-              t.id,
-              <span className="icon-opt">
-                <img src={iconUrl(t.id, mode, 'folder_home_open')} width={16} height={16} alt="" />
-                {t.name}
-              </span>
-            ] as [IconThemeId, ReactNode])} />
-          <small className="field-note">Se usan en la navegación, sitios, servicios y estados.</small>
-        </div>
-
-        <div className="field"><span>Fuente</span>
-          <Seg<FontKey> label="Fuente" value={s.font} onChange={(font) => set({ font })}
-            options={[['system', 'Sistema'], ['mono', 'Monoespaciada'], ['serif', 'Serif'], ['custom', 'Otra']]} />
-          {s.font === 'custom' && (
-            <input placeholder="Nombre de una fuente instalada, p. ej. Fira Sans" value={s.customFont}
-              onChange={(e) => set({ customFont: e.target.value })} />
-          )}
-        </div>
-
-        <div className="field"><span>Tamaño de texto: {s.fontSize}px</span>
-          <input type="range" min={12} max={20} value={s.fontSize} aria-label="Tamaño de texto" onChange={(e) => set({ fontSize: Number(e.target.value) })} />
-        </div>
-
-        <label className="check"><input type="checkbox" checked={s.compact} onChange={(e) => set({ compact: e.target.checked })} />Vista compacta</label>
-
-        <footer><button className="btn" onClick={() => set(DEFAULTS)}>Restablecer</button></footer>
+      <div className="field"><span>Iconos de archivos</span>
+        <Seg<IconThemeId> label="Iconos de archivos" value={s.iconTheme} onChange={(iconTheme) => set({ iconTheme })}
+          options={ICON_THEMES.map((t) => [
+            t.id,
+            <span className="icon-opt">
+              <img src={iconUrl(t.id, mode, 'folder_home_open')} width={16} height={16} alt="" />
+              {t.name}
+            </span>
+          ] as [IconThemeId, ReactNode])} />
+        <small className="field-note">Se usan en la navegación, sitios, servicios y estados.</small>
       </div>
-    </div>
+
+      <div className="field"><span>Fuente</span>
+        <Seg<FontKey> label="Fuente" value={s.font} onChange={(font) => set({ font })}
+          options={[['system', 'Sistema'], ['mono', 'Monoespaciada'], ['serif', 'Serif'], ['custom', 'Otra']]} />
+        {s.font === 'custom' && (
+          <input placeholder="Nombre de una fuente instalada, p. ej. Fira Sans" value={s.customFont}
+            onChange={(e) => set({ customFont: e.target.value })} />
+        )}
+      </div>
+
+      <div className="field"><span>Tamaño de texto: {s.fontSize}px</span>
+        <input type="range" min={12} max={20} value={s.fontSize} aria-label="Tamaño de texto" onChange={(e) => set({ fontSize: Number(e.target.value) })} />
+      </div>
+
+      <label className="check"><input type="checkbox" checked={s.compact} onChange={(e) => set({ compact: e.target.checked })} />Vista compacta</label>
+
+      <footer><button className="btn" onClick={() => set(DEFAULTS)}>Restablecer</button></footer>
+    </Modal>
   )
 }

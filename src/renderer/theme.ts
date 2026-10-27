@@ -48,10 +48,29 @@ const KEY = 'valet-dashboard:settings'
 const dark = () => matchMedia('(prefers-color-scheme: dark)')
 export const resolveMode = (m: Mode): 'light' | 'dark' => (m === 'system' ? (dark().matches ? 'dark' : 'light') : m)
 
-function onAccent(hex: string) {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+/** Luminancia relativa de un color `#rrggbb` según WCAG 2.1. */
+export function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
     .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#111111' : '#FFFFFF'
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** Contraste WCAG entre dos luminancias relativas. */
+export const contrastRatio = (a: number, b: number) =>
+  (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+
+const ACCENT_INK = ['#111111', '#FFFFFF'] as const
+
+/**
+ * Color del texto sobre un fondo de acento: el que más contraste da, no el que
+ * parece más oscuro. Un umbral fijo deja textos blancos sobre acentos medios
+ * como el rojo de Carbon, con un contraste de 3,4:1 (por debajo de AA).
+ */
+export function onAccent(hex: string): string {
+  const bg = luminance(hex)
+  const [dark, light] = ACCENT_INK
+  return contrastRatio(bg, luminance(dark)) >= contrastRatio(bg, luminance(light)) ? dark : light
 }
 
 export function loadSettings(): Settings {
