@@ -28,7 +28,7 @@ func TestParseRef(t *testing.T) {
 		{"postgres:17", "postgres", "17"},
 		{"redis:6", "redis", "6"},
 		{"meilisearch:v1.9", "meilisearch", "v1.9"},
-		{"mailpit:v1.22", "mailpit", "v1.22"},
+		{"mailpit:v1.32", "mailpit", "v1.32"},
 	}
 	for _, tc := range cases {
 		def, version, err := ParseRef(tc.ref, cfg)
@@ -108,6 +108,16 @@ func TestStartCreatesSafeDataPathAndUnit(t *testing.T) {
 	if !strings.Contains(unit, "PublishPort=127.0.0.1:") {
 		t.Fatalf("unit does not publish the service on localhost:\n%s", unit)
 	}
+	info, err := os.Stat(unitPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Fatalf("la unidad contiene la contraseña en Environment y debe ser 0600, es %o", mode)
+	}
+	if strings.Contains(unit, "-p"+sec.RootPassword) {
+		t.Fatalf("la unidad expone la contraseña fuera de Environment:\n%s", unit)
+	}
 	state, err := config.LoadServiceState(paths)
 	if err != nil {
 		t.Fatal(err)
@@ -133,5 +143,50 @@ func TestContainerAndUnitNames(t *testing.T) {
 	}
 	if got := Key("redis", "7"); got != "redis:7" {
 		t.Fatalf("key = %q", got)
+	}
+}
+
+// TestStartStoresSecretsBeforeStarting comprueba el guardado adelantado: si el
+// contenedor no queda sano, la contraseña con la que ya se inicializó el volumen
+// debe seguir guardada para poder reintentar.
+func TestStartStoresSecretsBeforeStarting(t *testing.T) {
+	home := t.TempDir()
+	paths := config.PathsFromHome(home)
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.DefaultConfigForHome(home)
+	u := ui.New(io.Discard, io.Discard)
+	runner := &execx.FakeRunner{
+		RunFunc: func(ctx context.Context, name string, args ...string) (string, error) {
+			joined := strings.Join(args, " ")
+			switch {
+			case strings.HasPrefix(joined, "inspect "):
+				return "unhealthy\n", nil
+			default:
+				return "", nil
+			}
+		},
+	}
+	systemdManager := &systemd.Manager{Runner: runner}
+	m := &Manager{
+		Paths:   paths,
+		Config:  cfg,
+		Podman:  &podman.Client{Runner: runner, UI: u},
+		Systemd: systemdManager,
+		Quadlet: &quadlet.Manager{Paths: paths, Systemd: systemdManager},
+		UI:      u,
+	}
+
+	if _, _, err := m.Start(context.Background(), "mysql:8.4", false); err == nil {
+		t.Fatal("se esperaba un error porque el contenedor está unhealthy")
+	}
+
+	secrets, err := config.LoadSecrets(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secrets.Services["mysql-8.4"].RootPassword == "" {
+		t.Fatal("la contraseña se perdió: debe guardarse antes de arrancar el contenedor")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"text/template"
 
@@ -82,8 +83,16 @@ func (m *Manager) render(name string, data any) (string, error) {
 	return buf.String(), nil
 }
 
-func (m *Manager) write(path, content string) error {
-	return state.WriteFile(path, []byte(content), 0o644)
+// unitMode is the permission applied to unit files. Service units carry
+// container environment variables, which may include database passwords, so
+// they are readable only by their owner.
+const unitMode os.FileMode = 0o600
+
+// publicUnitMode is used for units without secrets (nginx, PHP, DNS, watcher).
+const publicUnitMode os.FileMode = 0o644
+
+func (m *Manager) write(path, content string, mode os.FileMode) error {
+	return state.WriteFile(path, []byte(content), mode)
 }
 
 func (m *Manager) InstallNginx(data NginxData) (string, error) {
@@ -91,7 +100,7 @@ func (m *Manager) InstallNginx(data NginxData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := m.write(filepath.Join(m.Paths.QuadletDir, "devenv-nginx.container"), content); err != nil {
+	if err := m.write(filepath.Join(m.Paths.QuadletDir, "devenv-nginx.container"), content, publicUnitMode); err != nil {
 		return "", err
 	}
 	return "devenv-nginx.service", nil
@@ -103,7 +112,7 @@ func (m *Manager) InstallPHP(data PHPData) (string, error) {
 		return "", err
 	}
 	name := "devenv-php" + data.NoDot + ".container"
-	if err := m.write(filepath.Join(m.Paths.QuadletDir, name), content); err != nil {
+	if err := m.write(filepath.Join(m.Paths.QuadletDir, name), content, publicUnitMode); err != nil {
 		return "", err
 	}
 	return "devenv-php" + data.NoDot + ".service", nil
@@ -115,7 +124,7 @@ func (m *Manager) InstallService(data ServiceData) (string, error) {
 		return "", err
 	}
 	name := data.ContainerName + ".container"
-	if err := m.write(filepath.Join(m.Paths.QuadletDir, name), content); err != nil {
+	if err := m.write(filepath.Join(m.Paths.QuadletDir, name), content, unitMode); err != nil {
 		return "", err
 	}
 	return data.ContainerName + ".service", nil
@@ -126,7 +135,7 @@ func (m *Manager) InstallDNS(data DNSData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := m.write(filepath.Join(m.Paths.QuadletDir, "devenv-dnsmasq.container"), content); err != nil {
+	if err := m.write(filepath.Join(m.Paths.QuadletDir, "devenv-dnsmasq.container"), content, publicUnitMode); err != nil {
 		return "", err
 	}
 	return "devenv-dnsmasq.service", nil
@@ -137,7 +146,7 @@ func (m *Manager) InstallWatcher(data WatcherData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := m.write(filepath.Join(m.Paths.SystemdUserDir, "devenv-watcher.service"), content); err != nil {
+	if err := m.write(filepath.Join(m.Paths.SystemdUserDir, "devenv-watcher.service"), content, publicUnitMode); err != nil {
 		return "", err
 	}
 	return "devenv-watcher.service", nil

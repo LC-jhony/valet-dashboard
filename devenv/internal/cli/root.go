@@ -61,6 +61,7 @@ func NewRoot() *cobra.Command {
 		c.nodeCmd("npx", "npx"),
 		c.isolateNodeCmd(),
 		c.serviceCmd(),
+		c.mailCmd(),
 		c.snapshotCmd(),
 		c.restoreCmd(),
 		c.secureCmd(),

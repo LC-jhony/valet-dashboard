@@ -1,185 +1,27 @@
 import { homedir } from 'node:os'
 import { join, isAbsolute, sep } from 'node:path'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile, chmod } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import type { DnsMode, Env, InstallEvent, InstallOptions } from '../shared/types'
 import { APP_DIR, COMPOSER_BIN, COMPOSER_HOME, run } from './exec'
-import { BIN, USER_NAME, prepareHelpers, privilegedEnv, runValet } from './helpers'
+import { BACKUP_SCRIPT, DNS_SCRIPT } from './root-scripts'
+import {
+  ROOT_HELPER_DIR, USER_NAME, installRootHelper, prepareHelpers, privilegedEnv, runValet, unprivilegedEnv
+} from './helpers'
 import { apacheInfo, listSites, phpInfo, scanPorts, valetDomain } from './valet'
 
 const HOME = homedir()
 const PKG_RE = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i
 const DNS_MODES: DnsMode[] = ['safe', 'hosts', 'classic']
 const DNS_PORT = 5354
-const DNS_HELPER = join(BIN, 'dns-helper.sh')
-const BACKUP_HELPER = join(BIN, 'backup.sh')
+const DNS_HELPER = join(ROOT_HELPER_DIR, 'dns-helper.sh')
+const BACKUP_HELPER = join(ROOT_HELPER_DIR, 'backup.sh')
 let busy = false
 
 type PkgManager = 'apt' | 'dnf' | 'pacman'
 type Emit = (e: InstallEvent) => void
 type Step = { id: string; label: string; fn: () => Promise<'skip' | void> }
-
-const DNS_SCRIPT = String.raw`#!/usr/bin/env bash
-set -Eeo pipefail
-umask 022
-MODE="$1"
-TLD="$2"
-BACKUP_DIR="$3"
-HOSTS_FILE="$4"
-OWNER="$5"
-HOSTS_BEGIN="# BEGIN VALET DASHBOARD"
-HOSTS_END="# END VALET DASHBOARD"
-
-log() { printf '%s\n' "$*"; }
-fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-
-[ "$(id -u)" -eq 0 ] || fail "se requiere root"
-
-INTERNET_BEFORE=0
-getent hosts example.com >/dev/null 2>&1 && INTERNET_BEFORE=1 || true
-
-backup() {
-  [ -n "$BACKUP_DIR" ] || return 0
-  mkdir -p "$BACKUP_DIR"
-  for f in /etc/resolv.conf /etc/dnsmasq.conf /etc/dnsmasq.d /etc/default/dnsmasq /etc/NetworkManager/NetworkManager.conf /etc/NetworkManager/conf.d /etc/systemd/resolved.conf /etc/systemd/resolved.conf.d /etc/hosts /etc/valet-dashboard /etc/systemd/system/valet-dashboard-dns.service; do
-    [ -e "$f" ] || continue
-    cp -a "$f" "$BACKUP_DIR/$(basename "$f").$(date +%s%N)"
-  done
-  [ -n "$OWNER" ] && chown -R "$OWNER" "$BACKUP_DIR" 2>/dev/null || true
-}
-
-remove_hosts_block() {
-  [ -f /etc/hosts ] || return 0
-  local tmp
-  tmp="$(mktemp)"
-  awk -v b="$HOSTS_BEGIN" -v e="$HOSTS_END" '
-    $0 == b { skip=1; next }
-    $0 == e { skip=0; next }
-    !skip { print }
-  ' /etc/hosts > "$tmp"
-  install -m 644 "$tmp" /etc/hosts
-  rm -f "$tmp"
-}
-
-remove_safe() {
-  systemctl disable --now valet-dashboard-dns.service >/dev/null 2>&1 || true
-  rm -f /etc/systemd/system/valet-dashboard-dns.service
-  rm -f /etc/systemd/resolved.conf.d/valet-dashboard.conf
-  rm -rf /etc/valet-dashboard
-  systemctl daemon-reload >/dev/null 2>&1 || true
-  systemctl restart systemd-resolved >/dev/null 2>&1 || true
-}
-
-install_safe() {
-  [ -n "$TLD" ] || fail "TLD vacío"
-  [[ "$TLD" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || fail "TLD no válido"
-  systemctl is-active --quiet systemd-resolved || fail "systemd-resolved no está activo"
-  [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq no está instalado"
-
-  remove_safe
-  remove_hosts_block
-  mkdir -p /etc/valet-dashboard /etc/systemd/resolved.conf.d
-
-  cat > /etc/valet-dashboard/dnsmasq.conf <<EOF
-port=5354
-listen-address=127.0.0.1
-bind-interfaces
-no-resolv
-no-hosts
-local-ttl=0
-log-facility=-
-address=/$TLD/127.0.0.1
-EOF
-
-  cat > /etc/systemd/system/valet-dashboard-dns.service <<EOF
-[Unit]
-Description=Valet Dashboard DNS (.$TLD)
-After=network.target
-
-[Service]
-ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/etc/valet-dashboard/dnsmasq.conf
-Restart=on-failure
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  cat > /etc/systemd/resolved.conf.d/valet-dashboard.conf <<EOF
-[Resolve]
-DNS=127.0.0.1:5354
-Domains=~$TLD
-EOF
-
-  /usr/sbin/dnsmasq --test --conf-file=/etc/valet-dashboard/dnsmasq.conf >/dev/null || { remove_safe; fail "dnsmasq rechazó la configuración"; }
-  systemctl daemon-reload || { remove_safe; fail "No se pudo recargar systemd"; }
-  systemctl enable --now valet-dashboard-dns.service || { remove_safe; fail "No se pudo iniciar el DNS seguro"; }
-  systemctl restart systemd-resolved || { remove_safe; fail "No se pudo reiniciar systemd-resolved"; }
-  sleep 1
-  if ! getent hosts "valet-dashboard.$TLD" | grep -q '127.0.0.1'; then
-    remove_safe
-    fail "No se pudo resolver valet-dashboard.$TLD; se restauró la configuración"
-  fi
-  if [ "$INTERNET_BEFORE" -eq 1 ] && ! getent hosts example.com >/dev/null 2>&1; then
-    remove_safe
-    fail "El DNS general dejó de resolver; se restauró la configuración"
-  fi
-  log "DNS seguro activo: *.$TLD -> 127.0.0.1:5354"
-}
-
-install_hosts() {
-  [ -f "$HOSTS_FILE" ] || fail "No existe el archivo de hosts"
-  if grep -Evq '^(127\.0\.0\.1 [A-Za-z0-9.-]+|#|$)' "$HOSTS_FILE"; then
-    fail "El archivo de hosts contiene líneas no válidas"
-  fi
-  remove_safe
-  [ -f /etc/hosts ] || : > /etc/hosts
-  local tmp
-  tmp="$(mktemp)"
-  awk -v b="$HOSTS_BEGIN" -v e="$HOSTS_END" '
-    $0 == b { skip=1; next }
-    $0 == e { skip=0; next }
-    !skip { print }
-  ' /etc/hosts > "$tmp"
-  {
-    printf '%s\n' "$HOSTS_BEGIN"
-    cat "$HOSTS_FILE"
-    printf '%s\n' "$HOSTS_END"
-  } >> "$tmp"
-  install -m 644 "$tmp" /etc/hosts
-  rm -f "$tmp"
-  log "Entradas de hosts actualizadas"
-}
-
-remove_all() {
-  remove_safe
-  remove_hosts_block
-  log "DNS del dashboard eliminado"
-}
-
-backup
-
-case "$MODE" in
-  safe) install_safe ;;
-  hosts) install_hosts ;;
-  remove) remove_all ;;
-  *) fail "Modo desconocido: $MODE" ;;
-esac
-`
-
-const BACKUP_SCRIPT = String.raw`#!/usr/bin/env bash
-set -Eeo pipefail
-DEST="$1"
-OWNER="$2"
-[ -n "$DEST" ] || exit 1
-mkdir -p "$DEST"
-for f in /etc/nginx /etc/php /etc/apache2 /etc/dnsmasq.conf /etc/dnsmasq.d /etc/default/dnsmasq /etc/resolv.conf /etc/NetworkManager/NetworkManager.conf /etc/NetworkManager/conf.d /etc/systemd/resolved.conf /etc/systemd/resolved.conf.d /etc/hosts /etc/valet-dashboard /usr/local/bin/valet; do
-  [ -e "$f" ] || continue
-  cp -a "$f" "$DEST/"
-done
-[ -n "$OWNER" ] && chown -R "$OWNER" "$DEST" 2>/dev/null || true
-`
 
 async function distro(): Promise<{ id: string; pm: PkgManager | null }> {
   const t = await readFile('/etc/os-release', 'utf8').catch(() => '')
@@ -235,19 +77,23 @@ function normalizeDnsMode(mode: unknown): DnsMode {
 }
 
 async function prepareInstallScripts() {
-  await mkdir(BIN, { recursive: true })
-  await writeFile(DNS_HELPER, DNS_SCRIPT, { mode: 0o700 })
-  await writeFile(BACKUP_HELPER, BACKUP_SCRIPT, { mode: 0o700 })
-  await chmod(DNS_HELPER, 0o700)
-  await chmod(BACKUP_HELPER, 0o700)
+  await installRootHelper('dns-helper.sh', DNS_SCRIPT)
+  await installRootHelper('backup.sh', BACKUP_SCRIPT)
 }
 
-type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv }
+type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv; env?: NodeJS.ProcessEnv }
+
+/**
+ * Composer ejecuta scripts y plugins de paquetes de terceros: su entorno no
+ * incluye el ayudante `sudo` ni `SUDO_ASKPASS` que sí usa Valet.
+ */
+const composerEnv = (): NodeJS.ProcessEnv =>
+  unprivilegedEnv({ COMPOSER_HOME, COMPOSER_NO_INTERACTION: '1' })
 
 function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
   emit({ type: 'log', text: `$ ${cmd} ${args.join(' ')}\n` })
   return new Promise((resolve, reject) => {
-    const c = spawn(cmd, args, { env: privilegedEnv(opts.extraEnv), cwd: opts.cwd })
+    const c = spawn(cmd, args, { env: opts.env ?? privilegedEnv(opts.extraEnv), cwd: opts.cwd })
     const out = (b: Buffer) => emit({ type: 'log', text: b.toString() })
     c.stdout.on('data', out)
     c.stderr.on('data', out)
@@ -284,7 +130,7 @@ async function backupSystem(emit: Emit): Promise<string> {
   const dest = join(APP_DIR, 'backups', stamp(), 'system')
   if (!dest.startsWith(APP_DIR + sep)) throw new Error('Ruta de copia de seguridad no válida')
   await mkdir(APP_DIR, { recursive: true })
-  await run('pkexec', ['/bin/bash', BACKUP_HELPER, dest, USER_NAME])
+  await run('pkexec', [BACKUP_HELPER, dest, USER_NAME])
   emit({ type: 'log', text: `Copia de seguridad: ${dest}\n` })
   return dest
 }
@@ -339,7 +185,7 @@ async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
   const domain = await valetDomain().catch(() => 'test')
   const backupDir = join(APP_DIR, 'backups', stamp(), 'dns')
   const hostsFile = mode === 'hosts' ? await writeHostsFile(emit) : ''
-  await run('pkexec', ['/bin/bash', DNS_HELPER, mode, domain, backupDir, hostsFile, USER_NAME])
+  await run('pkexec', [DNS_HELPER, mode, domain, backupDir, hostsFile, USER_NAME])
   const name = `valet-dashboard.${domain}`
   const resolved = (await run('getent', ['hosts', name], true)).trim()
   if (!resolved.includes('127.0.0.1')) {
@@ -351,7 +197,7 @@ async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
 async function removeDns(emit: Emit) {
   const domain = await valetDomain().catch(() => 'test')
   const backupDir = join(APP_DIR, 'backups', stamp(), 'dns-remove')
-  await run('pkexec', ['/bin/bash', DNS_HELPER, 'remove', domain, backupDir, '', USER_NAME])
+  await run('pkexec', [DNS_HELPER, 'remove', domain, backupDir, '', USER_NAME])
   emit({ type: 'log', text: 'DNS del dashboard eliminado.\n' })
 }
 
@@ -526,7 +372,7 @@ export async function startInstall(o: InstallOptions, emit: Emit) {
         return 'skip'
       }
       await sh(emit, 'composer', ['global', 'require', pkg, '--no-interaction', '--no-progress'], {
-        extraEnv: { COMPOSER_HOME }
+        env: composerEnv()
       })
       if (!existsSync(join(COMPOSER_BIN, 'valet'))) throw new Error('Composer no creó el binario valet en el home aislado.')
     }),
@@ -598,7 +444,7 @@ export async function startUninstall(pkgInput: string, emit: Emit) {
         const [vendor, name] = pkg.split('/')
         if (!existsSync(join(COMPOSER_HOME, 'vendor', vendor, name))) return 'skip'
         await sh(emit, 'composer', ['global', 'remove', pkg, '--no-interaction', '--no-progress'], {
-          extraEnv: { COMPOSER_HOME }
+          env: composerEnv()
         })
       }
     }

@@ -8,7 +8,7 @@ import type {
   ProjectInfo, Service, ServiceAction, Site
 } from '../shared/types'
 import { COMPOSER_HOME, run, sudo } from './exec'
-import { prepareHelpers, privilegedEnv, runValet } from './helpers'
+import { prepareHelpers, privilegedEnv, runValet, unprivilegedEnv } from './helpers'
 
 const HOME = homedir()
 const VALET = join(HOME, '.valet')
@@ -197,7 +197,8 @@ function composerCreate(parent: string, name: string, version: string, emit: (e:
   const printable = args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')
   emit({ type: 'log', text: `$ composer ${printable}\n` })
   return new Promise((resolve, reject) => {
-    const child = spawn('composer', args, { cwd: parent, env: privilegedEnv({ COMPOSER_HOME }) })
+    // Composer ejecuta scripts del proyecto: se ejecuta sin el ayudante `sudo`.
+    const child = spawn('composer', args, { cwd: parent, env: unprivilegedEnv({ COMPOSER_HOME, COMPOSER_NO_INTERACTION: '1' }) })
     const out = (b: Buffer) => emit({ type: 'log', text: b.toString() })
     child.stdout.on('data', out)
     child.stderr.on('data', out)

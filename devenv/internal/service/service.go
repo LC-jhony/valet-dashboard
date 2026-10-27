@@ -38,7 +38,7 @@ type Definition struct {
 	Client         string
 	DBKind         string // mysql | postgres | ""
 	Env            func(root string, ports map[string]int) []string
-	HealthCmd      func(root string) string
+	HealthCmd      func() string
 }
 
 var catalog = map[string]Definition{
@@ -50,9 +50,9 @@ var catalog = map[string]Definition{
 		Env: func(root string, _ map[string]int) []string {
 			return []string{"MYSQL_ROOT_PASSWORD=" + root}
 		},
-		HealthCmd: func(root string) string {
-			return "mysqladmin ping -h 127.0.0.1 -u root -p" + root
-		},
+		// mysqladmin ping devuelve 0 aunque la conexión se rechace: sirve para
+		// saber si el servidor responde sin meter la contraseña en la unidad.
+		HealthCmd: func() string { return "mysqladmin ping -h 127.0.0.1 -u root --silent" },
 	},
 	"postgres": {
 		Name: "postgres", Image: "docker.io/library/postgres:<version>", DefaultVersion: "16",
@@ -62,7 +62,7 @@ var catalog = map[string]Definition{
 		Env: func(root string, _ map[string]int) []string {
 			return []string{"POSTGRES_PASSWORD=" + root, "POSTGRES_USER=postgres", "POSTGRES_DB=postgres"}
 		},
-		HealthCmd: func(string) string { return "pg_isready -U postgres" },
+		HealthCmd: func() string { return "pg_isready -U postgres" },
 	},
 	"redis": {
 		Name: "redis", Image: "docker.io/library/redis:<version>", DefaultVersion: "7",
@@ -71,7 +71,7 @@ var catalog = map[string]Definition{
 		DataPath: "/data", NetworkAlias: "devenv-redis", Client: "redis-cli",
 		Exec:      "redis-server --appendonly yes",
 		Env:       func(string, map[string]int) []string { return nil },
-		HealthCmd: func(string) string { return "redis-cli ping" },
+		HealthCmd: func() string { return "redis-cli ping" },
 	},
 	"meilisearch": {
 		Name: "meilisearch", Image: "docker.io/getmeili/meilisearch:<version>", DefaultVersion: "v1.8",
@@ -83,15 +83,15 @@ var catalog = map[string]Definition{
 		},
 	},
 	"mailpit": {
-		Name: "mailpit", Image: "docker.io/axllent/mailpit:<version>", DefaultVersion: "v1.21",
-		Versions: []string{"v1.20", "v1.21", "v1.22"},
+		Name: "mailpit", Image: "docker.io/axllent/mailpit:<version>", DefaultVersion: "v1.32",
+		Versions: []string{"v1.30", "v1.31", "v1.32"},
 		Ports: []PortSpec{
 			{Name: "smtp", Default: 1025, Container: 1025, Protocol: "tcp"},
 			{Name: "http", Default: 8025, Container: 8025, Protocol: "tcp"},
 		},
 		DataPath: "/data", NetworkAlias: "devenv-mailpit", Client: "mailpit",
 		Env: func(string, map[string]int) []string {
-			return []string{"MP_DATA_FILE=/data/mailpit.db"}
+			return []string{"MP_DATABASE=/data/mailpit.db"}
 		},
 	},
 }
@@ -245,8 +245,19 @@ func (m *Manager) Start(ctx context.Context, ref string, force bool) (config.Ser
 	}
 	health := ""
 	if def.HealthCmd != nil {
-		health = def.HealthCmd(sec.RootPassword)
+		health = def.HealthCmd()
 	}
+	// Se guarda antes de escribir la unidad y arrancar: si el contenedor falla
+	// después, la contraseña con la que ya se inicializó el volumen no puede
+	// perderse (un reintento generaría otra y el motor rechazaría la conexión).
+	state.Services[Key(def.Name, version)] = inst
+	if err := state.Save(m.Paths); err != nil {
+		return config.ServiceInstance{}, config.ServiceSecret{}, err
+	}
+	if err := secrets.Save(m.Paths); err != nil {
+		return config.ServiceInstance{}, config.ServiceSecret{}, err
+	}
+
 	unit, err := m.Quadlet.InstallService(quadlet.ServiceData{
 		Name: def.Name, Version: version, ContainerName: ContainerName(def.Name, version),
 		Image: image, NetworkAlias: alias, Volumes: volumes, Env: env,
@@ -265,13 +276,6 @@ func (m *Manager) Start(ctx context.Context, ref string, force bool) (config.Ser
 		return config.ServiceInstance{}, config.ServiceSecret{}, err
 	}
 
-	state.Services[Key(def.Name, version)] = inst
-	if err := state.Save(m.Paths); err != nil {
-		return config.ServiceInstance{}, config.ServiceSecret{}, err
-	}
-	if err := secrets.Save(m.Paths); err != nil {
-		return config.ServiceInstance{}, config.ServiceSecret{}, err
-	}
 	return inst, sec, nil
 }
 

@@ -1,3 +1,7 @@
+import type { MailpitApi } from './mailpit'
+
+export type { MailpitApi } from './mailpit'
+
 export interface Site { name: string; path: string; secure: boolean; kind: 'parked' | 'linked'; url: string }
 export interface ProjectInfo {
   domain: string
@@ -75,6 +79,7 @@ export interface Api {
     setApache(http: number, https: number): Promise<void>
   }
   services: { list(): Promise<Service[]>; action(name: string, action: ServiceAction): Promise<void> }
+  mailpit: MailpitApi
   install: {
     check(): Promise<Env>
     start(opts: InstallOptions): Promise<void>

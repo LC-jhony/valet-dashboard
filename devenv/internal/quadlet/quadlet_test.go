@@ -50,6 +50,13 @@ func TestInstallNginxUnit(t *testing.T) {
 			t.Errorf("nginx unit missing %q:\n%s", want, content)
 		}
 	}
+	info, err := os.Stat(filepath.Join(paths.QuadletDir, "devenv-nginx.container"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o644 {
+		t.Errorf("la unidad de nginx no lleva secretos y debería ser 0644, es %o", mode)
+	}
 }
 
 func TestInstallPHPUnit(t *testing.T) {
@@ -110,5 +117,12 @@ func TestInstallServiceUnit(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Errorf("service unit missing %q:\n%s", want, content)
 		}
+	}
+	info, err := os.Stat(filepath.Join(paths.QuadletDir, "devenv-mysql-8.4.container"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Errorf("la unidad de servicio lleva contraseñas y debe ser 0600, es %o", mode)
 	}
 }

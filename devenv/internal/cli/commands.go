@@ -4,7 +4,47 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"devenv/internal/app"
 )
+
+func (c *CLI) mailCmd() *cobra.Command {
+	var open, writeEnv bool
+	cmd := &cobra.Command{
+		Use:   "mail [servicio[:version]]",
+		Short: "Inicia Mailpit y muestra la UI y el SMTP",
+		Long: "Inicia Mailpit y muestra la interfaz web y el puerto SMTP.\n" +
+			"Con --env escribe MAIL_* en el .env del sitio actual; con --open abre la UI en el navegador.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a, u, err := c.app()
+			if err != nil {
+				return err
+			}
+			ref := ""
+			if len(args) == 1 {
+				ref = args[0]
+			}
+			info, err := a.Mail(cmd.Context(), app.MailOptions{Ref: ref, Open: open, Env: writeEnv})
+			if err != nil {
+				return err
+			}
+			if u.JSON {
+				return u.JSONOut(info)
+			}
+			fmt.Printf("Mailpit %s\n", info.Service)
+			fmt.Printf("  UI:   %s\n", info.UI)
+			fmt.Printf("  SMTP: %s\n", info.SMTP)
+			if info.Site != "" {
+				fmt.Printf("  .env: %s actualizado\n", info.Site)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&open, "open", false, "abre la interfaz web en el navegador")
+	cmd.Flags().BoolVar(&writeEnv, "env", false, "escribe MAIL_* en el .env del sitio actual")
+	return cmd
+}
 
 func (c *CLI) serviceCmd() *cobra.Command {
 	cmd := &cobra.Command{

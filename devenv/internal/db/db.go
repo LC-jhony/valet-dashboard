@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -94,10 +95,10 @@ func (m *Manager) EnsureProject(ctx context.Context, site config.Site, proj conf
 				vars["MEILISEARCH_KEY"] = sec.RootPassword
 				m.UI.Info("Meilisearch: app=http://%s:7700  host=http://127.0.0.1:%d", host, inst.Port)
 			case "mailpit":
-				vars["MAIL_MAILER"] = "smtp"
-				vars["MAIL_HOST"] = host
-				vars["MAIL_PORT"] = "1025"
-				m.UI.Info("Mailpit: app=%s:1025  web=http://127.0.0.1:%d", host, inst.Ports["http"])
+				for k, v := range MailVars(def, host) {
+					vars[k] = v
+				}
+				m.UI.Info("Mailpit: app=%s:%d  web=http://127.0.0.1:%d", host, SMTPContainerPort(def), inst.Ports["http"])
 			}
 		}
 	}
@@ -180,6 +181,101 @@ func (m *Manager) ensurePostgres(ctx context.Context, container, root string, cr
 		return fmt.Errorf("otorgar permisos PostgreSQL: %w", err)
 	}
 	return nil
+}
+
+// SMTPContainerPort returns the SMTP port Mailpit listens on inside the
+// devenv network, which is what containers (PHP/nginx) must use.
+func SMTPContainerPort(def service.Definition) int {
+	for _, p := range def.Ports {
+		if p.Name == "smtp" && p.Container > 0 {
+			return p.Container
+		}
+	}
+	return 1025
+}
+
+// MailVars maps the Mailpit definition to Laravel's MAIL_* settings.
+// The app runs inside the devenv network, so the container port is used even
+// when the published host port differs.
+func MailVars(def service.Definition, host string) map[string]string {
+	smtp := SMTPContainerPort(def)
+	return map[string]string{
+		"MAIL_MAILER":     "smtp",
+		"MAIL_HOST":       host,
+		"MAIL_PORT":       strconv.Itoa(smtp),
+		"MAIL_USERNAME":   "null",
+		"MAIL_PASSWORD":   "null",
+		"MAIL_ENCRYPTION": "null",
+	}
+}
+
+// EnsureMailEnv starts Mailpit and merges its connection settings into the
+// project's .env without touching unrelated services.
+func (m *Manager) EnsureMailEnv(ctx context.Context, site config.Site, ref string) (config.ServiceInstance, map[string]string, error) {
+	def, version, err := service.ParseRef(ref, m.Config)
+	if err != nil {
+		return config.ServiceInstance{}, nil, err
+	}
+	if def.Name != "mailpit" {
+		return config.ServiceInstance{}, nil, fmt.Errorf("%s no es Mailpit", def.Name)
+	}
+	inst, _, err := m.Services.Start(ctx, ref, false)
+	if err != nil {
+		return config.ServiceInstance{}, nil, err
+	}
+	host := service.ContainerName(def.Name, version)
+	if version == m.Services.DefaultVersion(def) {
+		host = def.NetworkAlias
+	}
+	vars := MailVars(def, host)
+	if err := m.MergeEnv(site.Path, vars); err != nil {
+		return config.ServiceInstance{}, nil, err
+	}
+	return inst, vars, nil
+}
+
+// readEnvBlock returns the keys already managed in the devenv block of .env.
+func (m *Manager) readEnvBlock(root string) (map[string]string, error) {
+	path := filepath.Join(root, ".env")
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return map[string]string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	text := string(data)
+	start := strings.Index(text, envStart)
+	end := strings.Index(text, envEnd)
+	if start < 0 || end <= start {
+		return map[string]string{}, nil
+	}
+	block := text[start+len(envStart) : end]
+	vars := map[string]string{}
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(key) == "" {
+			continue
+		}
+		vars[strings.TrimSpace(key)] = strings.TrimSpace(value)
+	}
+	return vars, nil
+}
+
+// MergeEnv adds or replaces keys in the devenv block, keeping the rest.
+func (m *Manager) MergeEnv(root string, vars map[string]string) error {
+	existing, err := m.readEnvBlock(root)
+	if err != nil {
+		return err
+	}
+	for k, v := range vars {
+		existing[k] = v
+	}
+	return m.WriteEnv(root, existing)
 }
 
 // WriteEnv replaces only the devenv-managed block in .env.

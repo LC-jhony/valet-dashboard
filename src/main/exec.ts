@@ -28,5 +28,20 @@ export function run(cmd: string, args: string[] = [], lenient = false, cwd?: str
   return runWithEnv(cmd, args, env, lenient, cwd)
 }
 
+/**
+ * Ejecuta un comando con datos por la entrada estándar. Necesario para secretos:
+ * los argumentos de un proceso son visibles en `ps` para cualquier usuario.
+ */
+export function runInput(cmd: string, args: string[], input: string, lenient = false): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(cmd, args, { env, timeout: 60_000 }, (err, stdout, stderr) => {
+      if (err && !lenient) reject(new Error(stderr.trim() || err.message))
+      else resolve(stdout)
+    })
+    child.stdin?.on('error', () => { /* el comando puede cerrar la entrada antes */ })
+    child.stdin?.end(input)
+  })
+}
+
 /** Operaciones privilegiadas: polkit muestra el diálogo de contraseña. */
 export const sudo = (cmd: string, args: string[]) => run('pkexec', [cmd, ...args])

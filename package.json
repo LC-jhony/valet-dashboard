@@ -9,7 +9,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit",
-    "dist": "electron-vite build && electron-builder --linux AppImage deb rpm"
+    "dist": "npm run typecheck && npm run test && electron-vite build && electron-builder --linux AppImage deb rpm",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
@@ -22,7 +23,8 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
   },
   "build": {
     "appId": "dev.valet.dashboard",
