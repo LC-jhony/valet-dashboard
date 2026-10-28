@@ -39,6 +39,13 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Cambiado
 
+- Interfaz más plana: el área de trabajo pierde margen y borde, los radios bajan a
+  4–14 px, las filas dejan de ser tarjetas y las acciones de cada fila pasan a estilo
+  fantasma. Etiquetas, segmentos y previsualizaciones pierden el borde y usan un fondo
+  suave.
+- Los estados hover siguen una sola regla: fondos neutros para lo secundario, relleno más
+  oscuro para el botón primario y ningún cambio sobre controles deshabilitados. Todos
+  comparten la transición `--t` de 120 ms.
 - Los controles rellenos (botón **Nuevo proyecto** y segmentos activos) usan un rojo más
   profundo con texto blanco: el rojo de marca sobre fondo oscuro no admitía blanco con
   contraste AA, así que el acento queda para iconos, bordes y texto, y el relleno usa
