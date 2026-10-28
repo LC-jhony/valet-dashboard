@@ -92,13 +92,6 @@ export function MailpitSidebar({ r }: { r: Resource<MailpitInfo> }) {
             {info.auth && <li className="ok"><Glyph name="lock" size={15} /><span>Auth de UI</span><Glyph name="check" size={13} /></li>}
           </ul>
 
-          {info.warnings.length > 0 && (
-            <div className="side-alert" role="alert">
-              <Glyph name="alert" size={14} />
-              <span>{info.warnings[0]}{info.warnings.length > 1 ? ` (+${info.warnings.length - 1})` : ''}</span>
-            </div>
-          )}
-
           {info.uptime && <p className="side-note">En marcha desde hace {info.uptime}.</p>}
           <p className="side-note">El buzón se abre en el área principal. Los atajos Ctrl+1…6 siguen funcionando dentro de Mailpit.</p>
         </>
@@ -269,47 +262,39 @@ export function MailpitPage({ r, active, overlay }: {
 
       {info && (
         <>
-          <div className="panel mp-hero">
-            <div className="panel-head">
-              <span className="panel-icon"><Glyph name="mail" size={18} /></span>
-              <h2 className="panel-title">Mailpit</h2>
-              <span className={`tag ${info.running ? 'on' : ''}`}>{info.running ? 'en ejecución' : 'detenido'}</span>
-              {info.version && <span className="tag info">{info.version}</span>}
+          <div className="mp-bar">
+            <div className="mp-status">
+              <span className={`status-dot ${info.running ? 'ok' : 'idle'}`} />
+              <strong>Mailpit</strong>
+              {info.version && <span className="tag">{info.version}</span>}
+              <span className="mp-state">{info.running ? 'en ejecución' : 'detenido'}</span>
+              {info.auth && <span className="tag on"><Glyph name="lock" size={11} />Auth</span>}
+              {info.tls && <span className="tag on"><Glyph name="lock" size={11} />TLS</span>}
+              <span className="mp-meta">
+                {info.messages ?? '—'} mensajes · {info.unread ?? 0} sin leer · {formatBytes(info.databaseSize)}
+              </span>
             </div>
             <div className="mp-endpoints">
               <div className="mp-endpoint">
-                <span className="mp-endpoint-label"><Glyph name="globe" size={13} />Web UI y API</span>
-                <code>{info.uiUrl}</code>
-                <button className="icon-btn" onClick={copyUrl} title="Copiar URL" aria-label="Copiar URL">
-                  <Glyph name={copied ? 'check' : 'copy'} size={13} />
-                </button>
-              </div>
-              <div className="mp-endpoint">
-                <span className="mp-endpoint-label"><Glyph name="mail" size={13} />SMTP</span>
-                <code>{info.smtpAddr}</code>
-              </div>
-              <div className="mp-endpoint">
-                <span className="mp-endpoint-label"><Glyph name="mail" size={13} />POP3</span>
-                <code>{info.pop3Addr}</code>
-                {!info.pop3Enabled && (
-                  <button
-                    className="btn ghost mp-inline-btn"
-                    disabled={busy}
-                    title="Activar la autenticación POP3 en la configuración"
-                    onClick={() => openSettings('auth')}
-                  >
-                    <Glyph name="settings" size={12} />Activarlo
+                <span className="mp-endpoint-label"><Glyph name="globe" size={12} />Web UI y API</span>
+                <span className="mp-endpoint-value">
+                  <code>{info.uiUrl}</code>
+                  <button className="icon-btn" onClick={copyUrl} title="Copiar URL" aria-label="Copiar URL">
+                    <Glyph name={copied ? 'check' : 'copy'} size={13} />
                   </button>
-                )}
+                </span>
+              </div>
+              <div className="mp-endpoint">
+                <span className="mp-endpoint-label"><Glyph name="mail" size={12} />SMTP</span>
+                <span className="mp-endpoint-value"><code>{info.smtpAddr}</code></span>
               </div>
             </div>
-            <div className="panel-actions">
+            <div className="mp-actions">
               {!info.installed && <button className="btn primary" disabled={busy} onClick={install}><Glyph name="install" size={13} />{busy ? 'Instalando…' : 'Instalar Mailpit'}</button>}
               {info.installed && !info.running && <button className="btn primary" disabled={busy} onClick={() => act(() => window.api.mailpit.start())}><Glyph name="play" size={13} />Iniciar</button>}
               {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.stop())}><Glyph name="stop" size={13} />Detener</button>}
               {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.restart())}><Glyph name="restart" size={13} />Reiniciar</button>}
               {update && <button className="btn tonal" disabled={busy} onClick={install}><Glyph name="install" size={13} />Actualizar a {info.latestVersion}</button>}
-              {info.installed && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.openExternal())}><Glyph name="globe" size={13} />Abrir en el navegador</button>}
               <button className="btn" disabled={busy} aria-label="Configuración de Mailpit" onClick={() => openSettings()}><Glyph name="settings" size={13} />Configuración</button>
               <button className="btn" disabled={busy || !info.installed} onClick={() => setIntegrationsOpen(true)}><Glyph name="terminal" size={13} />Integraciones</button>
               {info.running && <button className="btn danger" disabled={busy || !info.messages} onClick={() => confirm('¿Vaciar todos los mensajes del buzón?') && act(() => window.api.mailpit.clearMessages())}><Glyph name="close" size={13} />Vaciar buzón</button>}
@@ -317,13 +302,6 @@ export function MailpitPage({ r, active, overlay }: {
                   gestionada, este botón es la forma de volver al del sistema. */}
               {info.systemBinary && info.binarySource !== 'system' && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.useSystem(info.systemBinary as string))}><Glyph name="check" size={13} />Usar el del sistema</button>}
             </div>
-          </div>
-
-          <div className="mp-stats">
-            <div className="mp-stat"><span>Mensajes</span><strong>{info.messages ?? '—'}</strong><small>{info.unread ?? 0} sin leer</small></div>
-            <div className="mp-stat"><span>Base de datos</span><strong>{formatBytes(info.databaseSize)}</strong><small>{info.database}</small></div>
-            <div className="mp-stat"><span>Uptime</span><strong>{info.uptime ?? '—'}</strong><small>{info.running ? 'servicio activo' : 'servicio detenido'}</small></div>
-            <div className="mp-stat"><span>Protección</span><strong>{info.auth ? 'Auth' : 'Abierto'}{info.tls ? ' · TLS' : ''}</strong><small>{info.systemdAvailable ? 'systemd --user' : 'systemd no disponible'}</small></div>
           </div>
 
           {busy && (status || percent > 0) && (
@@ -338,30 +316,33 @@ export function MailpitPage({ r, active, overlay }: {
             </div>
           )}
 
-          {info.warnings.length > 0 && (
-            <div className="panel">
-              <div className="panel-head">
-                <span className="panel-icon"><Glyph name="alert" size={18} /></span>
-                <h2 className="panel-title">Avisos</h2>
-              </div>
-              <ul className="side-check-list">
-                {info.warnings.filter((w) => w !== MAILPIT_POP3_WARNING).map((w, i) => (
-                  <li key={i} className="warn"><Glyph name="alert" size={15} /><span>{w}</span></li>
-                ))}
-                {!info.pop3Enabled && (
-                  <li className="warn mp-action-row">
-                    <Glyph name="alert" size={15} />
-                    <span>{MAILPIT_POP3_WARNING}</span>
-                    <button className="btn ghost mp-inline-btn" disabled={busy} onClick={() => openSettings('auth')}>
-                      <Glyph name="settings" size={12} />Configurar POP3
-                    </button>
-                  </li>
-                )}
-              </ul>
+          {(info.warnings.length > 0 || !info.pop3Enabled) && (
+            <div className="mp-notices">
+              {info.warnings.filter((w) => w !== MAILPIT_POP3_WARNING).map((w, i) => (
+                <div className="mp-notice" key={i}><Glyph name="alert" size={14} /><span>{w}</span></div>
+              ))}
+              {!info.pop3Enabled && (
+                <div className="mp-notice">
+                  <Glyph name="alert" size={14} />
+                  <span>{MAILPIT_POP3_WARNING}</span>
+                  <button className="btn ghost mp-inline-btn" disabled={busy} onClick={() => openSettings('auth')}>
+                    <Glyph name="settings" size={12} />Configurar POP3
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
           <div className="mp-embed-shell">
+            {info.running && (
+              <div className="mp-viewbar">
+                <Glyph name="globe" size={13} />
+                <code className="mp-viewurl">{info.uiUrl}</code>
+                <button className="btn ghost mp-inline-btn" disabled={busy} onClick={() => act(() => window.api.mailpit.openExternal())}>
+                  <Glyph name="globe" size={12} />Abrir en el navegador
+                </button>
+              </div>
+            )}
             {info.running
               ? <div className="mp-embed" ref={hostRef} aria-label="Interfaz de Mailpit" />
               : (

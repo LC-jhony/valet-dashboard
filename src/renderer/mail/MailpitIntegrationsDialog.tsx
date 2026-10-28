@@ -25,9 +25,11 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
       window.api.sites.list().catch(() => [] as ValetSite[]),
       window.api.mailpit.sendmailInfo().catch(() => [] as MailpitSendmailInfo[])
     ])
-    setSites(s)
-    setSite((current) => current || s[0]?.name || '')
-    setSendmail(m)
+    // Una respuesta vacía no debe tumbar la pestaña: el diálogo se abre
+    // igual y muestra que no hay sitios o envíos que configurar.
+    setSites(s ?? [])
+    setSite((current) => current || s?.[0]?.name || '')
+    setSendmail(m ?? [])
   }
 
   useEffect(() => { void load() }, [])
