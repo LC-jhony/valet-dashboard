@@ -10,10 +10,13 @@ puertos, servicios, correo, ajustes, seguridad y copias, arquitectura, desarroll
 problemas.
 
 ## Requisitos
-- Ubuntu 26.04 LTS (probado) o una distribución con systemd, polkit (`pkexec`) y NetworkManager.
+- Ubuntu 26.04 LTS (probado) o una distribución con systemd y NetworkManager.
+- Polkit (`pkexec`) con agente gráfico, o `sudo` con `zenity`/`kdialog` para pedir la
+  contraseña de administrador. Si falta polkit, el panel usa `sudo -A`.
 - Node 20+ para desarrollar o empaquetar la app.
 - `systemd-resolved` activo para el **modo DNS seguro**. Si no está activo, usa el modo **Hosts**.
 - No hace falta instalar Valet, nginx ni Composer a mano: la pestaña **Instalación** lo hace desde el panel.
+  Si falta algo que el panel no puede instalar, la propia pestaña muestra el comando exacto.
 
 ## Instalación
 
@@ -60,20 +63,26 @@ Cada push y cada pull request pasa por `.github/workflows/ci.yml`: tipos, prueba
 `gofmt`, `go vet` y `go test` del CLI `devenv`.
 
 ## Instalación desde el panel
-La pestaña **Instalación** detecta el sistema y ejecuta pasos idempotentes con registro en vivo:
+La pestaña **Instalación** detecta el sistema, muestra una **guía de requisitos previos**
+con los comandos exactos cuando falta algo, y ejecuta pasos idempotentes con registro en vivo:
 
-1. Comprueba puertos 80/443, `systemd-resolved`, `/etc/resolv.conf` y el puerto DNS `5354`.
+1. Comprueba requisitos previos, puertos 80/443, `systemd-resolved`, `/etc/resolv.conf`
+   y el puerto DNS `5354`.
 2. Crea una copia de seguridad en `~/.valet-dashboard/backups/<fecha>/system`.
 3. Libera Apache si está marcado y ocupa 80/443.
-4. Instala dependencias con `pkexec` y el gestor de la distribución.
+4. Instala solo las dependencias que faltan, con `pkexec` o, si no hay polkit, con
+   `sudo -A` y el diálogo de contraseña. Si ya están todas, el paso se omite.
 5. Instala Valet con un **Composer aislado** en `~/.config/valet-dashboard/composer`.
    No usa ni modifica el Composer global (evita el conflicto con Illuminate 13).
 6. Aplica un parche al paquete de Valet para que **no ejecute su instalación DNS**
    cuando se usa el modo seguro o hosts.
-7. Ejecuta `valet install` como el usuario actual. Valet eleva solo lo necesario mediante
-   un `sudo` auxiliar con `SUDO_ASKPASS`; Valet nunca se ejecuta directamente como root.
+7. Ejecuta `valet install` como el usuario actual y valida la configuración con `nginx -t`.
+   Valet eleva solo lo necesario mediante un `sudo` auxiliar con `SUDO_ASKPASS`; Valet
+   nunca se ejecuta directamente como root.
 8. Configura el DNS y registra la carpeta de proyectos con `valet park`.
 9. Verifica nginx, PHP-FPM, `/usr/local/bin/valet` y la resolución de `*.test`.
+10. Prueba un sitio temporal de extremo a extremo: si responde `valet-ok`, nginx y
+    PHP-FPM funcionan de verdad. Después borra el sitio.
 
 No se ejecuta `valet trust`: no existe en `cpriego/valet-linux` 2.4.5. Tampoco se usa
 `valet uninstall --force`.

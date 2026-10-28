@@ -46,9 +46,10 @@ npm run dev
 
 | Mensaje | Causa | Solución |
 |---|---|---|
-| `Distribución no soportada: <id>. Instala las dependencias a mano.` | `/etc/os-release` no es Debian/Ubuntu, Fedora/RHEL/CentOS ni Arch | Usa una distribución compatible o instala las dependencias manualmente |
-| `Falta pkexec (polkit); instálalo para autenticar la instalación.` | No está `pkexec` | Instala `policykit-1` (Debian/Ubuntu) o `polkit` (Fedora/Arch) y comprueba que hay un agente polkit |
-| `Falta pkexec (polkit); instálalo para autenticar los cambios de red.` | Igual, al reparar DNS o desinstalar | Igual |
+| `Faltan requisitos: <lista>` | Queda algún requisito bloqueante | Sigue la guía del panel **Requisitos previos** |
+| `Falta un método de elevación: instala polkit (pkexec) o sudo con zenity` | No hay `pkexec` ni `sudo` con diálogo | Instala `policykit-1`/`polkit` o `sudo` + `zenity` |
+| `Falta zenity o kdialog: sin ellos nadie puede escribir la contraseña de administrador.` | El diálogo de contraseña no existe | Instala `zenity` (o `kdialog` en KDE) |
+| `No se encontró pkexec` | El binario desapareció a mitad de la instalación | Revisa la guía y vuelve a comprobar |
 | `Libera los puertos 80/443 antes de instalar: ...` | Otro proceso ocupa los puertos y no es Apache, o no marcaste detener Apache | Detén el proceso o marca la opción de Apache |
 | `systemd-resolved no está activo; elige el modo hosts o actívalo antes.` | El modo Seguro necesita systemd-resolved | Actívalo o usa **Hosts** |
 | `El puerto 5354 está ocupado; elige el modo hosts.` | dnsmasq u otro proceso usa 5354 | Usa **Hosts** o libera el puerto |
@@ -74,6 +75,9 @@ npm run dev
 
 ### Errores del gestor de paquetes
 
+El panel no te deja a solas con la salida cruda: traduce estas firmas a un título, una
+explicación y los comandos que suelen resolverlo. Los comandos aparecen con botón **Copiar**.
+
 | Mensaje | Causa | Solución |
 |---|---|---|
 | `Could not get lock /var/lib/dpkg/lock-frontend` | Otro `apt`/`apt-get` está en ejecución | Espera o cierra la otra herramienta; no borres el lock a ciegas |
@@ -83,6 +87,7 @@ npm run dev
 | `Transaction check error` / conflictos de `dnf` | Paquetes incompatibles | Resuelve el conflicto con `dnf` y reintenta |
 | `target not found` en pacman | Paquete no disponible en los repositorios | Actualiza los repositorios o instala el equivalente |
 | Se canceló el diálogo de polkit | No autenticaste | Repite y autentica |
+| `El comando no terminó a tiempo` | Superó los 15 minutos | Comprueba la red, espera a que el gestor termine y reintenta |
 
 ### La instalación falla a medias
 
@@ -91,10 +96,25 @@ posterior falla. Los pasos son idempotentes:
 
 1. Corrige la causa que muestra el registro.
 2. Pulsa **Reparar instalación**.
-3. Los pasos completados se omiten o se repiten sin duplicar configuración.
+3. Los pasos completados se omiten o se repiten sin duplicar configuración. El paso de
+   dependencias consulta qué falta antes de tocar el gestor, así que el reintento es
+   rápido cuando los paquetes ya están.
 
-No cierres la aplicación durante una operación. Si se queda bloqueada, espera a que el
-comando termine; matar el proceso puede dejar paquetes o archivos a medio escribir.
+No cierres la aplicación durante una operación. Si necesitas pararla, usa **Cancelar**:
+detiene el comando actual y devuelve la interfaz. Lo que ya se ejecutó con permisos de
+administrador puede tardar unos segundos en terminar; espera antes de reintentar para no
+dejar el gestor de paquetes bloqueado.
+
+### La prueba de humo falla
+
+El último paso crea un sitio temporal y pide su `index.php` por HTTP. Según la respuesta:
+
+| Respuesta | Significado | Qué revisar |
+|---|---|---|
+| `200` con `valet-ok` | nginx, PHP-FPM y permisos correctos | Nada |
+| `502` | nginx responde, PHP-FPM no | `systemctl status phpX.Y-fpm`, el socket en `~/.valet/` y el pool en `/etc/php/X.Y/fpm/pool.d/valet.conf` |
+| `404` | nginx no encuentra el sitio | La configuración de Valet, `valet park` y `~/.valet/Nginx` |
+| `000` o vacío | nginx no escucha | `systemctl status nginx`, `nginx -t` y el puerto HTTP configurado |
 
 ## DNS y resolución de `*.test`
 
@@ -484,7 +504,8 @@ Después de desinstalar se conservan:
 - La desinstalación automática solo cubre el Valet aislado del panel.
 - No gestiona servicios de usuario ni contenedores.
 - La interfaz está solo en español.
-- No hay tests automatizados ni CI.
+- La cancelación detiene el proceso que lanza el panel, pero un comando ya elevado puede
+  terminar por su cuenta.
 
 ## Comandos de diagnóstico
 

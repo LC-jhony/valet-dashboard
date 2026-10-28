@@ -6,6 +6,32 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ## [Sin publicar]
 
+### Añadido
+
+- Guía de requisitos previos en la pestaña **Instalación**: cada bloqueo muestra su causa,
+  el comando exacto para resolverlo y un botón para copiarlo, con **Volver a comprobar**.
+- Elevación con alternativa: si falta `pkexec`, el panel usa `/usr/bin/sudo -A` con el
+  diálogo de contraseña. La guía solo bloquea cuando no hay ninguna forma de elevar.
+- El botón de instalar explica el motivo cuando está deshabilitado.
+- Diagnóstico de errores del gestor de paquetes: bloqueo de dpkg, disco lleno, red caída,
+  paquete inexistente, conflictos, autenticación cancelada y tiempo agotado.
+- Botón **Cancelar** durante una instalación; libera la interfaz.
+- Prueba de humo al final de la instalación: crea un sitio temporal, pide su `index.php`
+  por HTTP y distingue 502 (PHP-FPM), 404 (nginx) y 000 (nginx caído).
+- Instalación manual en distribuciones sin `apt`/`dnf`/`pacman`: si las herramientas ya
+  están, el flujo continúa y omite el paso de paquetes. El botón pasa a
+  **Continuar con lo instalado**.
+- Aviso cuando la versión de PHP del CLI no tiene un PHP-FPM instalado.
+
+### Cambiado
+
+- El paso de dependencias consulta qué falta antes de ejecutar el gestor de paquetes, así
+  que «Reparar instalación» termina en segundos cuando todo está instalado.
+- Se instala `php-sqlite3` (y `php-process` y `php-pdo` en Fedora), necesario para las
+  migraciones de Laravel 11 y posteriores y para `ext-posix` de Valet.
+- `valet install` se valida con `nginx -t` antes de continuar.
+- Los comandos tienen un tiempo máximo de 15 minutos y el error lo explica.
+
 ## [0.1.0] — 2026-10-27
 
 Primera versión publicada. Recoge el panel completo, la integración de Mailpit y
