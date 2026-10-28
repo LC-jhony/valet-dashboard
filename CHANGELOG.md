@@ -45,6 +45,13 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Cambiado
 
+- La interfaz pasa de español a inglés: textos, diálogos, avisos de error del proceso
+  principal, guía de requisitos y asistente de proyectos. Los comentarios del código, este
+  registro y los mensajes de commit siguen en español.
+- En **Programas y actualizaciones**, la fila de Valet se llama `valet` y ofrece siempre
+  **Upgrade**: reinstala el paquete en el Composer aislado y vuelve a aplicar el parche de
+  DNS seguro aunque la versión instalada ya sea la última. El contador de pendientes solo
+  cuenta actualizaciones reales.
 - Interfaz más plana: el área de trabajo pierde margen y borde, los radios bajan a
   4–14 px, las filas dejan de ser tarjetas y las acciones de cada fila pasan a estilo
   fantasma. Etiquetas, segmentos y previsualizaciones pierden el borde y usan un fondo
