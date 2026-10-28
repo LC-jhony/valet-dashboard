@@ -14,6 +14,7 @@ import { CreateProjectDialog } from './CreateProjectDialog'
 import { MailpitPage, MailpitSidebar } from './mail/MailpitPage'
 import { PrereqsPanel, CommandBlock, installBlockReason } from './PrereqsPanel'
 import { DnsPanel } from './DnsPanel'
+import { UpdatesPanel } from './UpdatesPanel'
 import { errorMessage } from './errors'
 
 type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install' | 'mail'
@@ -940,6 +941,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   const [error, setError] = useState('')
   const [failure, setFailure] = useState<{ title: string; detail: string; hint: string; commands: string[] } | null>(null)
   const logRef = useRef<HTMLPreElement>(null)
+  const progressRef = useRef<HTMLElement>(null)
   const env = r.data
   const installed = env?.valet.installed ?? false
   // El motivo se muestra junto al modo seguro: «no disponible» sin decir por
@@ -977,6 +979,13 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
     if (!visible) return
     logRef.current?.scrollTo(0, logRef.current.scrollHeight)
   }, [log, visible])
+
+  // Una actualización se lanza arriba y sus pasos viven al final de la página:
+  // al aparecer el plan se trae el progreso a la vista.
+  useEffect(() => {
+    if (!visible || steps.length === 0) return
+    progressRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [steps.length, visible])
 
   const go = async (fn: () => Promise<void>) => {
     setBusy(true)
@@ -1068,6 +1077,8 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
             </div>
           )}
 
+          <UpdatesPanel visible={visible} busy={busy} onRun={(id) => go(() => window.api.updates.run(id))} />
+
           <PrereqsPanel env={env} onRecheck={r.reload} />
         </>
       )}
@@ -1144,7 +1155,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
       </div>
 
       {steps.length > 0 && (
-        <section id="install-progress" className="install-section">
+        <section id="install-progress" className="install-section" ref={progressRef}>
           <div className="section-head">
             <h2>Progreso</h2>
             <span>{steps.filter((s) => s.status === 'ok').length} de {steps.length} pasos</span>

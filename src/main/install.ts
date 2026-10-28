@@ -31,10 +31,10 @@ let busy = false
 let current: ChildProcess | null = null
 let cancelRequested = false
 
-type Emit = (e: InstallEvent) => void
-type Step = { id: string; label: string; fn: () => Promise<'skip' | void> }
+export type Emit = (e: InstallEvent) => void
+export type Step = { id: string; label: string; fn: () => Promise<'skip' | void> }
 
-async function distro(): Promise<{ id: string; pm: Pm | null }> {
+export async function distro(): Promise<{ id: string; pm: Pm | null }> {
   const t = await readFile('/etc/os-release', 'utf8').catch(() => '')
   const get = (k: string) => (t.match(new RegExp(`^${k}=(.*)$`, 'm'))?.[1] ?? '').replace(/"/g, '')
   const s = `${get('ID')} ${get('ID_LIKE')}`
@@ -89,11 +89,11 @@ type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv; env?: NodeJS.Proc
  * Composer ejecuta scripts y plugins de paquetes de terceros: su entorno no
  * incluye el ayudante `sudo` ni `SUDO_ASKPASS` que sí usa Valet.
  */
-const composerEnv = (): NodeJS.ProcessEnv =>
+export const composerEnv = (): NodeJS.ProcessEnv =>
   unprivilegedEnv({ COMPOSER_HOME, COMPOSER_NO_INTERACTION: '1' })
 
 /** Ejecuta un paso cualquiera y, si falla, emite el diagnóstico clasificado. */
-function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
+export function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
   emit({ type: 'log', text: `$ ${cmd} ${args.join(' ')}\n` })
   return new Promise((resolve, reject) => {
     const c = spawn(cmd, args, { env: opts.env ?? privilegedEnv(opts.extraEnv), cwd: opts.cwd })
@@ -121,13 +121,13 @@ function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Prom
 }
 
 /** Igual que {@link sh}, con la elevación que haya disponible. */
-async function shElevated(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
+export async function shElevated(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
   const how = await elevationCommand()
   if (!how) throw new Error('No hay método de elevación: instala polkit (pkexec) o sudo con zenity')
   return sh(emit, how.cmd, [...how.args, cmd, ...args], opts)
 }
 
-async function runSteps(steps: Step[], emit: Emit) {
+export async function runSteps(steps: Step[], emit: Emit) {
   if (busy) throw new Error('Ya hay una operación en curso')
   busy = true
   cancelRequested = false
@@ -184,7 +184,7 @@ async function writeHostsFile(emit: Emit): Promise<string> {
   return file
 }
 
-async function patchValetDns(pkg: string, emit: Emit) {
+export async function patchValetDns(pkg: string, emit: Emit) {
   const [vendor, name] = pkg.split('/')
   const file = join(COMPOSER_HOME, 'vendor', vendor, name, 'cli', 'Valet', 'DnsMasq.php')
   if (!existsSync(file)) throw new Error(`No se encontró ${file}. Composer no instaló el paquete esperado.`)

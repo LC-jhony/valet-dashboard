@@ -59,6 +59,10 @@ const api: Api = {
       return () => void ipcRenderer.removeListener('mailpit:shortcut', h)
     }
   },
+  updates: {
+    check: (force) => call('updates:check', force),
+    run: (id) => call('updates:run', id)
+  },
   install: {
     check: () => call('install:check'),
     start: (o) => call('install:start', o),

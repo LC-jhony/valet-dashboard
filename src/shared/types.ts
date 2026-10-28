@@ -94,6 +94,11 @@ export interface Api {
   }
   services: { list(): Promise<Service[]>; action(name: string, action: ServiceAction): Promise<void> }
   mailpit: MailpitApi
+  updates: {
+    /** Consulta versiones instaladas y disponibles; `force` ignora la caché. */
+    check(force?: boolean): Promise<UpdatesInfo>
+    run(id: UpdateId): Promise<void>
+  }
   install: {
     check(): Promise<Env>
     start(opts: InstallOptions): Promise<void>
@@ -139,6 +144,38 @@ export interface InstallOptions {
   parkDir: string
   stopApache: boolean
   dnsMode: DnsMode
+}
+
+/** Programas que el panel sabe comparar y, a veces, actualizar. */
+export type UpdateId = 'php' | 'nginx' | 'dnsmasq' | 'composer' | 'valet' | 'node'
+
+export interface UpdateItem {
+  id: UpdateId
+  label: string
+  /** Versión instalada; vacía si el programa no está. */
+  current: string
+  /** Última versión conocida; vacía si no se pudo consultar. */
+  latest: string
+  /** Hay una versión más nueva que la instalada. */
+  available: boolean
+  /** Quién lo actualiza. `none`: el panel solo puede explicarlo. */
+  source: 'system' | 'composer' | 'none'
+  /** Paquetes del gestor implicados (solo `system`). */
+  packages: string[]
+  /** Por qué el panel no puede actualizarlo. Vacío cuando sí puede. */
+  blocked: string
+  /** La actualización pedirá la contraseña de administrador. */
+  needsElevation: boolean
+  /** Qué ejecutar a mano cuando el panel no puede. */
+  commands: string[]
+}
+
+export interface UpdatesInfo {
+  items: UpdateItem[]
+  /** Epoch en milisegundos de la última comprobación. */
+  checkedAt: number
+  /** Motivo parcial: por ejemplo, no se pudo consultar internet. */
+  warning: string
 }
 export type StepStatus = 'wait' | 'run' | 'ok' | 'skip' | 'fail'
 export type InstallEvent =

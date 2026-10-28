@@ -32,6 +32,21 @@ export function run(cmd: string, args: string[] = [], lenient = false, cwd?: str
 }
 
 /**
+ * Como {@link run}, pero devuelve las dos salidas. `nginx -v` y
+ * `dnsmasq --version` escriben la versión solo en stderr.
+ */
+export function runCapture(
+  cmd: string, args: string[] = [], lenient = false
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { env, timeout: TIMEOUT_MS }, (err, stdout, stderr) => {
+      if (err && !lenient) reject(new Error(stderr.trim() || err.message))
+      else resolve({ stdout, stderr })
+    })
+  })
+}
+
+/**
  * Ejecuta un comando con datos por la entrada estándar. Necesario para secretos:
  * los argumentos de un proceso son visibles en `ps` para cualquier usuario.
  */

@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import * as v from './valet'
 import * as inst from './install'
+import * as upd from './updates'
 import * as mp from './mailpit'
 import * as mpc from './mailpit-config'
 import * as mpp from './mailpit-project'
@@ -115,6 +116,8 @@ ipcMain.handle('install:cancel', (e) => { assertTrusted(e); inst.cancelInstall()
 handleWithEvents('install:uninstall', 'install:event', (send, p) => inst.startUninstall(p, send))
 handleWithEvents('install:repairDns', 'install:event', (send, m) => inst.repairDns(m, send))
 handleWithEvents('install:syncHosts', 'install:event', (send) => inst.syncHosts(send))
+ipcMain.handle('updates:check', (e, force?: boolean) => { assertTrusted(e); return upd.checkUpdates(force === true) })
+handleWithEvents('updates:run', 'install:event', (send, id) => upd.runUpdate(id, send))
 
 handleWithEvents('mailpit:install', 'mailpit:event', (send) => { invalidateMailTarget(); return mp.install(send) })
 
