@@ -52,6 +52,9 @@ export function UpdatesPanel({ visible, busy, onRun }: {
   const { data, error, loading, load } = useUpdates(visible)
   const [running, setRunning] = useState<UpdateId | null>(null)
   const items = data?.items ?? []
+  // valet always offers Upgrade: it reinstalls the isolated Valet and
+  // reapplies the DNS patch, even when the version is already current.
+  const canUpgrade = (i: UpdateItem) => !i.blocked && (i.available || i.id === 'valet')
   const pending = items.filter((i) => i.available)
 
   const apply = async (item: UpdateItem) => {
@@ -117,7 +120,7 @@ export function UpdatesPanel({ visible, busy, onRun }: {
                 </div>
               </div>
               <div className="row-meta">
-                {item.available && !item.blocked ? (
+                {canUpgrade(item) ? (
                   <button
                     className="btn primary"
                     disabled={busy}

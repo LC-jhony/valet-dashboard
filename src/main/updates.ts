@@ -316,7 +316,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
     const latest = latestPackagistVersion(packagistJson ?? '') || valet
     items.push({
       id: 'valet',
-      label: 'Valet',
+      label: 'valet',
       current: valet,
       latest,
       available: isNewer(latest, valet),
@@ -368,7 +368,9 @@ export async function runUpdate(id: UpdateId, emit: Emit): Promise<void> {
   const item = info.items.find((i) => i.id === id)
   if (!item) throw new Error('That program is not installed on this machine.')
   if (item.blocked) throw new Error(item.blocked)
-  if (!item.available) throw new Error(`${item.label} is already up to date.`)
+  // valet can always be upgraded: it reinstalls the panel's isolated Valet and
+  // reapplies the DNS patch.
+  if (!item.available && id !== 'valet') throw new Error(`${item.label} is already up to date.`)
 
   const d = await distro()
   const steps: Step[] = []
