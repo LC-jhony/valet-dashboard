@@ -8,6 +8,20 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Añadido
 
+- Asistente **Nuevo proyecto** con el instalador oficial de Laravel (`laravel new`):
+  starter kit y autenticación, stack de frontend, pruebas, Boost, gestor de Node, Git y
+  base de datos. Las preguntas cambian según las respuestas.
+- Detección real de capacidades: versión del instalador, flags que admite, extensiones
+  `pdo_*` y gestores de Node disponibles. Los motores sin extensión aparecen
+  deshabilitados.
+- Instalación automática de `laravel/installer` en el Composer aislado si no hay uno
+  global, sin tocar el Composer del usuario.
+- Base de datos con credenciales por entorno del proceso: el instalador ejecuta las
+  migraciones sin que la contraseña aparezca en los argumentos ni en el registro; después
+  se escriben en `.env` y los valores no secretos en `.env.example`.
+- **Detener** cancela el grupo completo del instalador (Composer, PHP y Node).
+- **Eliminar carpeta incompleta** tras un fallo, limitado a la última carpeta creada y con
+  comprobaciones para no tocar enlaces de Valet ni sitios registrados.
 - Guía de requisitos previos en la pestaña **Instalación**: cada bloqueo muestra su causa,
   el comando exacto para resolverlo y un botón para copiarlo, con **Volver a comprobar**.
 - Elevación con alternativa: si falta `pkexec`, el panel usa `/usr/bin/sudo -A` con el
@@ -25,6 +39,10 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Cambiado
 
+- La creación de proyectos usa `laravel new` en lugar de `composer create-project`. Solo
+  se ofrece la última versión estable: el instalador no acepta una restricción.
+- Tras crear el proyecto se ajusta `APP_URL` en `.env` con el dominio y el puerto reales
+  de nginx, aunque el instalador los hubiera dejado por defecto.
 - El paso de dependencias consulta qué falta antes de ejecutar el gestor de paquetes, así
   que «Reparar instalación» termina en segundos cuando todo está instalado.
 - Se instala `php-sqlite3` (y `php-process` y `php-pdo` en Fedora), necesario para las

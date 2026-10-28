@@ -76,51 +76,120 @@ El botón **Abrir** abre la URL del sitio en el navegador predeterminado del sis
 
 ## Crear un proyecto Laravel
 
-El botón **Nuevo proyecto** del encabezado de Sitios crea un proyecto Laravel nuevo, lo
-registra en Valet y lo selecciona en la lista.
+El botón **Nuevo proyecto** del encabezado de Sitios abre un asistente que crea un
+proyecto con el instalador oficial (`laravel new`), lo registra en Valet y lo selecciona
+en la lista.
 
 ### Requisitos
 
-- **Composer** y **Valet** instalados. Si falta alguno, el diálogo lo indica y desactiva
-  **Crear proyecto**.
-- Conexión a Internet para que Composer descargue Laravel y sus dependencias.
+- **Valet** instalado. Si falta, el diálogo lo indica y desactiva **Crear proyecto**.
+- **Instalador de Laravel** (`laravel/installer`). Si no está, el panel lo instala con
+  Composer en el `COMPOSER_HOME` aislado (`~/.config/valet-dashboard/composer`) la primera
+  vez que creas un proyecto. No modifica el Composer global.
+- **Composer** solo si hace falta instalar el instalador. Si ya hay un `laravel` global o
+  aislado, no se usa Composer.
+- Conexión a Internet para descargar Laravel y sus dependencias.
 - Una carpeta existente con permisos de escritura.
+- El motor de base de datos elegido, si no es SQLite, con la base ya creada y un usuario
+  con permiso para migrar.
 
-El panel usa Composer con el `COMPOSER_HOME` aislado
-(`~/.config/valet-dashboard/composer`), igual que el instalador. No modifica el Composer
-global.
+El asistente crea siempre la **última versión estable** de Laravel: el instalador no
+admite una restricción de versión.
 
-### Campos del diálogo
+### Pasos del asistente
+
+El formulario cambia según lo que respondas: las preguntas de Livewire solo aparecen con
+ese starter kit, las credenciales solo con motores que no son SQLite, y los motores sin
+extensión PDO aparecen deshabilitados.
+
+#### 1. Proyecto
 
 | Campo | Descripción |
 |---|---|
 | **Nombre del proyecto** | Minúsculas, números y guiones; máximo 63 caracteres; sin empezar ni terminar en guion. Será el nombre de la carpeta, del enlace y del sitio |
-| **Carpeta de proyectos** | Carpeta donde se creará `<carpeta>/<nombre>`. Se puede escribir, elegir con el selector nativo de carpetas o escoger una ruta aparcada del desplegable. `~/.valet/Sites` está reservada para enlaces y no se ofrece como destino |
-| **Versión de Laravel** | **Última estable** o **Otra versión…** con una restricción de Composer, por ejemplo `12.*`, `^12.0` o `>=11 <13` |
+| **Carpeta de proyectos** | Carpeta donde se creará `<carpeta>/<nombre>`. Se puede escribir, elegir con el selector nativo o escoger una ruta aparcada. `~/.valet/Sites` está reservada para enlaces y no se ofrece como destino |
 
-La vista previa muestra la URL que tendrá el sitio, con el dominio y el puerto reales de
-nginx. El proyecto se crea sin HTTPS; se puede activar después con el botón de la fila.
+Debajo se muestran la URL prevista y el estado del instalador.
+
+#### 2. Interfaz
+
+- **¿Usar un starter kit?**
+  - **Sí, con autenticación**: elige React, Svelte, Vue o Livewire y el proveedor de
+    autenticación (Laravel o WorkOS). Con Livewire puedes usar componentes de archivo
+    único o de clase; el soporte de equipos solo se ofrece con archivo único.
+  - **No, solo el esqueleto**: elige Blade, React, Svelte, Vue o Livewire. El proyecto se
+    crea sin autenticación; Blade deja el esqueleto clásico.
+- WorkOS necesita credenciales propias después de crear el proyecto; el asistente no las
+  pide.
+
+#### 3. Herramientas
+
+| Opción | Efecto |
+|---|---|
+| **Pruebas** | Instala **Pest** o **PHPUnit** |
+| **Gestor de Node** | `npm`, `pnpm`, `bun` o `yarn` instalan dependencias y compilan assets. **Ninguno** omite ese paso y deja los assets sin compilar |
+| **Laravel Boost** | Instala Boost para asistencia con IA |
+| **Repositorio Git** | Ejecuta `git init` y crea el primer commit |
+
+Solo se ofrecen los gestores de Node que existen en el equipo.
+
+#### 4. Base de datos
+
+Los motores disponibles se detectan con las extensiones `pdo_*` del PHP que usa el
+instalador. En esta máquina, por ejemplo, hay `pdo_mysql` y `pdo_pgsql` pero no
+`pdo_sqlite`, así que SQLite aparece deshabilitado.
+
+| Motor | Extensión | Puerto por defecto |
+|---|---|---|
+| SQLite | `pdo_sqlite` | — |
+| MySQL | `pdo_mysql` | 3306 |
+| MariaDB | `pdo_mysql` | 3306 |
+| PostgreSQL | `pdo_pgsql` | 5432 |
+| SQL Server | `pdo_sqlsrv` | 1433 |
+
+Con un motor distinto de SQLite se piden **host**, **puerto**, **base de datos**,
+**usuario** y **contraseña**. El instalador ejecuta las migraciones: la base debe existir
+y las credenciales deben funcionar.
+
+Los secretos viajan por el **entorno del proceso**, nunca como argumentos ni en el
+registro. Después de crear el proyecto se escriben en `.env`; en `.env.example` solo
+quedan los valores no secretos. Así los argumentos no aparecen en `ps` y la contraseña no
+queda en el historial visible.
+
+El resumen muestra el comando exacto que se ejecutará, sin credenciales.
 
 ### Qué ocurre al crear
 
-1. Se validan el nombre, la carpeta, la versión, los requisitos y que no exista ya la
-   carpeta de destino ni un sitio con ese nombre.
-2. Composer ejecuta `create-project laravel/laravel <nombre> [versión]` con
-   `--no-interaction --no-progress` y el `COMPOSER_HOME` aislado.
-3. El diálogo muestra el **registro en vivo** de Composer y el paso actual.
-4. Si la carpeta elegida es **exactamente** una ruta aparcada, el proyecto aparece
-   automáticamente en la lista. Si no lo es, se ejecuta `valet link <nombre>` dentro del
-   proyecto.
-5. La lista se actualiza y el sitio nuevo queda seleccionado. El resultado ofrece
-   **Abrir sitio** y **Cerrar**.
+1. Se validan el nombre, la carpeta, las respuestas y que no exista la carpeta de destino
+   ni un sitio con ese nombre.
+2. Si falta el instalador, se instala en el Composer aislado.
+3. Se ejecuta `laravel new <nombre>` con `--no-interaction --no-ansi` y una opción por
+   cada respuesta (starter kit, autenticación, pruebas, Boost, Node, Git y base de datos).
+4. El diálogo muestra el **registro en vivo** y el paso actual.
+5. Si la carpeta elegida es **exactamente** una ruta aparcada, el proyecto aparece solo en
+   la lista. Si no, se ejecuta `valet link <nombre>` dentro del proyecto.
+6. Se ajusta `APP_URL` en `.env` con el dominio y el puerto reales de nginx.
+7. La lista se actualiza y el sitio queda seleccionado. El resultado ofrece **Abrir sitio**
+   y **Cerrar**.
 
 El nombre se usa para la carpeta, el enlace de Valet y el dominio: `mi-app` →
 `http://mi-app.test/` (o el dominio configurado en Valet).
 
-> **Sin cancelación:** el diálogo no interrumpe Composer a mitad. Si el proceso falla o
-> cierras la aplicación, puede quedar una carpeta incompleta; bórrala a mano antes de
-> reintentar. Si el proyecto se crea pero falla el enlace, el proyecto permanece en disco y
-> el mensaje indica la ruta.
+### Cancelar y carpetas incompletas
+
+**Detener** mata el grupo de procesos completo del instalador, incluidos Composer, PHP y
+el gestor de Node. No espera a que termine el paso actual.
+
+Si la creación falla después de crear la carpeta, el diálogo ofrece **Eliminar carpeta
+incompleta**. El panel solo borra la última carpeta que creó esa ejecución y comprueba
+antes que:
+
+- no esté dentro de `~/.valet/Sites`;
+- no sea ya un sitio registrado;
+- el nombre de la carpeta siga el formato de proyecto.
+
+Nunca borra una ruta arbitraria ni un proyecto que ya funcione. Si el proyecto se creó
+pero falló el enlace, la carpeta se conserva y el mensaje indica la ruta.
 
 > **Modo DNS Hosts:** después de crear un proyecto, pulsa **Sincronizar hosts** en
 > [Instalación](Instalacion#modo-hosts) para que el dominio nuevo resuelva. El modo Seguro
@@ -130,21 +199,24 @@ El nombre se usa para la carpeta, el enlace de Valet y el dominio: `mi-app` →
 
 | Mensaje | Causa | Solución |
 |---|---|---|
-| `Composer no está instalado` | No se encontró el binario de Composer | Instálalo desde **Instalación** o revisa el `PATH` |
 | `Valet no está instalado` | No se encontró el binario de Valet | Instálalo desde **Instalación** |
+| `No se encontró el instalador de Laravel ni Composer` | Faltan ambos binarios | Instala Composer desde **Instalación** |
+| `No se pudo instalar el instalador de Laravel` | Fallo de red o de permisos en el Composer aislado | Revisa el registro del diálogo y la conexión |
 | `Nombre de proyecto no válido` | Mayúsculas, espacios, guiones al inicio/fin o más de 63 caracteres | Usa minúsculas, números y guiones |
 | `La carpeta de destino no existe` | La ruta escrita no existe | Elígela con **Elegir…** o créala antes |
 | `La carpeta de destino no tiene permisos de escritura` | El usuario no puede escribir en la carpeta | Elige otra carpeta o corrige los permisos |
 | `La carpeta ~/.valet/Sites está reservada...` | Se intentó crear dentro del directorio de enlaces de Valet | Elige una ruta aparcada o cualquier otra carpeta de proyectos |
 | `Ya existe ...` | La carpeta de destino o el sitio ya existen | Cambia el nombre o la carpeta |
-| `Versión de Laravel no válida` | La restricción no tiene un formato admitido | Usa `12.*`, `^12.0` o deja **Última estable** |
-| `Composer terminó con código X` | Fallo de red, extensión PHP o dependencia | Revisa el registro del diálogo y corrige la causa |
+| `SQLite no está disponible...` | PHP no tiene `pdo_sqlite` | Instala la extensión o elige otro motor |
+| `No se encontró <gestor> en el sistema` | El gestor de Node elegido no está en el `PATH` | Instálalo o elige otro |
+| `Faltan las credenciales de la base de datos` | Se eligió un motor sin completar los datos | Completa host, puerto, base, usuario y contraseña |
+| `El instalador de Laravel terminó con código X` | Fallo de red, de extensión PHP o de migración | Revisa el registro del diálogo y corrige la causa |
 | `... no se pudo enlazar en Valet` | El proyecto se creó, pero `valet link` falló | Enlázalo a mano con `valet link <nombre>` en la carpeta del proyecto |
 | `... no aparece en la lista de Valet` | El enlace no se creó o la ruta no es accesible | Pulsa **Actualizar** y revisa `valet links` |
 
 Si el sitio se crea pero la página devuelve un error 500, revisa las extensiones de PHP
-que necesita Laravel. Por ejemplo, las versiones recientes usan SQLite para las sesiones y
-necesitan `pdo_sqlite`:
+que necesita Laravel. Las migraciones y las sesiones suelen usar la base elegida; con
+SQLite hace falta `pdo_sqlite`:
 
 ```bash
 php -m | grep -i pdo
@@ -247,19 +319,20 @@ herramientas de Valet, vuelve a cargar la pestaña para ver las URLs nuevas.
 - **Un sitio nuevo no resuelve en modo Hosts**: pulsa **Sincronizar hosts**.
 - **El botón Abrir está deshabilitado**: el nombre del sitio no es un nombre de host
   válido para el navegador.
-- **Nuevo proyecto está deshabilitado**: falta Composer o Valet, o el formulario todavía
-  no es válido. Revisa el aviso del diálogo.
+- **Nuevo proyecto está deshabilitado**: falta Valet, no hay Composer para instalar el
+  instalador de Laravel o las respuestas del asistente no son válidas. Revisa el aviso del
+  diálogo.
 - **El proyecto se creó pero el sitio no abre**: comprueba el DNS (en modo Hosts, pulsa
   **Sincronizar hosts**), que nginx esté activo y que PHP tenga las extensiones que necesita
   Laravel.
-- **Composer falla durante la creación**: revisa el registro en vivo; suele ser red,
-  espacio en disco, permisos o una extensión PHP ausente.
+- **El instalador falla durante la creación**: revisa el registro en vivo; suele ser red,
+  espacio en disco, permisos, una extensión PHP o credenciales de base de datos.
 
 ## Limitaciones
 
 - No elimina sitios, enlaces ni rutas aparcadas. Solo crea proyectos Laravel nuevos.
 - No registra carpetas existentes ni permite enlazarlas desde la interfaz.
-- No cancela una creación de Composer en curso.
+- No crea ni configura la base de datos elegida: debe existir antes.
 - No activa HTTPS automáticamente al crear el proyecto.
 - No instala extensiones PHP ni bases de datos que el proyecto pueda necesitar.
 - No gestiona sitios proxy de Valet.

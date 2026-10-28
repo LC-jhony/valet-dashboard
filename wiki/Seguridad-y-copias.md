@@ -68,7 +68,10 @@ rutas o paquetes. Aun así, el proceso principal valida los datos antes de usarl
 | Modo DNS | Solo `safe`, `hosts` o `classic` |
 | Carpeta de proyectos | Debe ser absoluta después de expandir `~` |
 | Nombre de proyecto | Minúsculas, números y guiones; 1–63 caracteres; sin guion inicial ni final |
-| Versión de Laravel | Restricción acotada a caracteres de Composer; se rechaza si empieza por `-` |
+| Opciones de `laravel new` | Se derivan de respuestas tipadas; el renderer no envía una cadena de flags |
+| Credenciales de base de datos | Host, puerto, base y usuario validados; viajan por el entorno del proceso, nunca como argumentos ni en el registro |
+| Gestor de Node | Debe existir en el `PATH` antes de elegirlo |
+| Carpeta incompleta | Solo se borra la última registrada por una creación fallida, fuera de `~/.valet/Sites` y que no sea un sitio |
 | Carpeta de destino | Debe existir, ser un directorio, tener permiso de escritura y resolverse a una ruta real |
 | TLD del DNS | Letras, números, puntos y guiones, con inicio y fin alfanumérico |
 

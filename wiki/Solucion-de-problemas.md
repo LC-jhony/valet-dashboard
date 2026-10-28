@@ -296,11 +296,16 @@ falla.
 | `La carpeta ~/.valet/Sites está reservada para los enlaces de Valet.` | Se eligió el directorio interno de enlaces como carpeta de proyectos | Elige una ruta aparcada o cualquier otra carpeta |
 | `Ya existe /ruta/<nombre>. Elige otro nombre o carpeta.` | La carpeta de destino ya existe | Cambia el nombre o la carpeta; no se sobrescribe nada |
 | `Ya existe un sitio llamado <nombre>.` | Hay un sitio de Valet con ese nombre | Cambia el nombre o elimina el enlace anterior con `valet unlink` |
-| `Versión de Laravel no válida...` | Restricción con formato no admitido | Usa `12.*`, `^12.0`, `>=11 <13` o deja **Última estable** |
-| `Composer terminó con código X. Revisa el registro.` | Fallo de red, disco, permisos o dependencias | Corrige la causa que muestra el registro y reintenta |
+| `No se encontró el instalador de Laravel ni Composer` | Faltan ambos binarios | Instala Composer desde **Instalación** |
+| `No se pudo instalar el instalador de Laravel (código X)` | Fallo de red o de permisos en el Composer aislado | Revisa el registro y la conexión |
+| `SQLite no está disponible: falta su extensión PDO en PHP.` | PHP no tiene `pdo_sqlite` | Instala la extensión o elige otro motor |
+| `No se encontró <gestor> en el sistema.` | El gestor de Node elegido no está en el `PATH` | Instálalo o elige otro |
+| `Faltan las credenciales de la base de datos.` | Motor distinto de SQLite sin credenciales | Completa host, puerto, base, usuario y contraseña |
+| `El instalador de Laravel terminó con código X.` | Fallo de red, extensión PHP o migración | Corrige la causa que muestra el registro y reintenta |
+| `El instalador de Laravel superó el tiempo máximo...` | La descarga o la compilación de assets no terminó en el tiempo permitido | Revisa la conexión y reintenta |
 | `El proyecto se creó en ... pero no se pudo enlazar en Valet: ...` | `valet link` falló | Entra en la carpeta y ejecuta `valet link <nombre>` a mano |
 | `El proyecto se creó en ... pero no aparece en la lista de Valet.` | El enlace no existe o la ruta no es accesible | Pulsa **Actualizar**, revisa `valet links` y enlaza a mano si falta |
-| `Ya hay una creación de proyecto en curso.` | Se intentó crear otro proyecto mientras Composer trabajaba | Espera a que termine |
+| `Ya hay una creación de proyecto en curso.` | Se intentó crear otro proyecto mientras el instalador trabajaba | Espera a que termine o pulsa **Detener** |
 | `No se pudo ejecutar Composer: ...` | Composer no arrancó o no tiene permisos | Revisa la instalación de Composer |
 | `Composer could not find a composer.json` o error de download | Red, proxy o repositorio de Composer | Revisa la conexión y el registro; reintenta |
 | `No space left on device` | Disco lleno | Libera espacio y reintenta |
@@ -308,7 +313,7 @@ falla.
 
 ### El proyecto no aparece después de crearlo
 
-1. Comprueba que Composer terminó sin error en el diálogo.
+1. Comprueba que el instalador terminó sin error en el diálogo.
 2. Pulsa **Actualizar** en **Sitios**.
 3. Revisa el enlace:
 

@@ -56,6 +56,7 @@ src/
 ├── main/
 │   ├── index.ts       Ventana, menú, registro de IPC y eventos
 │   ├── valet.ts       Sitios, proyectos Laravel, PHP, puertos y servicios
+│   ├── laravel-installer.ts  Localiza/instala `laravel new`, capacidades y ejecución
 │   ├── install.ts     Diagnóstico, instalación, DNS, backups y desinstalación
 │   ├── mailpit.ts     Ciclo de vida, descarga, systemd, health y API de Mailpit
 │   ├── mailpit-config.ts  Configuración, auth, TLS, env, YAML y unidad de Mailpit
@@ -66,6 +67,7 @@ src/
 │   └── index.ts       contextBridge → window.api
 ├── shared/
 │   ├── types.ts       Contrato IPC y tipos de datos
+│   ├── laravel.ts     Modelo puro del asistente: respuestas, flags, validación y .env
 │   └── mailpit.ts     Contrato y esquema de opciones MP_* de Mailpit
 └── renderer/
     ├── main.tsx       Punto de entrada; aplica ajustes antes de renderizar
@@ -97,10 +99,11 @@ src/
 
 - **Sitios**: lee `~/.valet/config.json`, las rutas aparcadas y `~/.valet/Sites`; detecta
   certificados; calcula la URL con esquema y puerto reales; ordena y deduplica.
-- **Proyectos Laravel**: valida nombre, carpeta y versión; comprueba Composer y Valet;
-  ejecuta `composer create-project` con `spawn`, `cwd` y el `COMPOSER_HOME` aislado; emite
-  el registro en vivo; detecta si la carpeta es una ruta aparcada y, si no, ejecuta
-  `valet link`; devuelve el `Site` creado.
+- **Proyectos Laravel**: valida nombre, carpeta y respuestas del asistente; comprueba
+  Valet; localiza el instalador (`laravel`) o lo instala en el Composer aislado; ejecuta
+  `laravel new` en un grupo de procesos propio con opciones explícitas y credenciales por
+  entorno; emite el registro en vivo; enlaza con `valet link` si la carpeta no está
+  aparcada; parchea `.env`; permite cancelar y borrar la carpeta incompleta.
 - **PHP**: detecta `php-fpmX.Y` en `/usr/sbin` y `/usr/bin`; obtiene la versión actual de
   PHP CLI; ejecuta `valet use php@X.Y`.
 - **Puertos de nginx**: localiza `~/.valet/Nginx/*.conf` y
@@ -184,7 +187,9 @@ vista embebida, y `mailpit:shortcut` reenvía los atajos capturados dentro de Ma
 
 Es el contrato único entre main, preload y renderer. Incluye `Api`, `Site`, `ProjectInfo`,
 `CreateProjectOptions`, `CreateProjectEvent`, `PortsInfo`, `PhpInfo`, `Service`, `Env`,
-`InstallOptions` e `InstallEvent`. `Api.mailpit` reexporta el contrato de
+`InstallOptions` e `InstallEvent`. `CreateProjectOptions` lleva las respuestas del
+asistente y las credenciales de base de datos; el modelo puro que las valida y traduce a
+flags vive en `src/shared/laravel.ts`. `Api.mailpit` reexporta el contrato de
 `src/shared/mailpit.ts`, que también define los grupos, campos, defaults y helpers del
 esquema `MP_*`.
 
@@ -287,28 +292,38 @@ Renderer → sites:list
 ```text
 Renderer → sites:project-info
   → lee dominio y rutas aparcadas
-  → detecta puerto HTTP y disponibilidad de Composer/Valet
+  → detecta puerto HTTP, Valet, instalador de Laravel y capacidades (PDO, gestores Node)
   → devuelve ProjectInfo
 
 Renderer → sites:pick-dir (opcional)
   → dialog.showOpenDialog con openDirectory/createDirectory
   → devuelve ruta o null
 
-Renderer → sites:create({ name, parentDir, version })
-  → valida nombre, versión, carpeta, requisitos y duplicados
-  → emit stage: creando con Composer
-  → spawn composer create-project laravel/laravel <name> [version]
-      con cwd=parentDir y COMPOSER_HOME aislado
-  → emite log con stdout/stderr
+Renderer → sites:create({ parentDir, answers, database })
+  → valida nombre, carpeta, respuestas, flags disponibles y credenciales
+  → si falta el instalador: composer global require laravel/installer
+      con COMPOSER_HOME aislado
+  → spawn laravel new <name> [flags]
+      cwd=parentDir, detached=true (grupo de procesos), sin variables de agente
+      credenciales DB_* en el entorno, nunca en los argumentos
+  → emite log con stdout/stderr y stage con cada fase
+  → parchea .env con DB_* y APP_URL; .env.example solo con valores no secretos
   → si parentDir no es una ruta aparcada: valet link <name> con cwd=<target>
   → listSites y busca el sitio nuevo
   → emit stage: proyecto creado
   → devuelve Site
   → renderer refresca la lista y selecciona el sitio
+
+Renderer → sites:cancel-create
+  → SIGTERM al grupo del instalador; SIGKILL a los 5 s
+
+Renderer → sites:delete-incomplete(path)
+  → solo la última carpeta registrada por una creación fallida
+  → rechaza ~/.valet/Sites y sitios ya registrados
 ```
 
-Si `sites:create` falla, el renderer muestra el mensaje en el diálogo y conserva el
-registro. No hay cancelación del proceso de Composer en esta versión.
+Si `sites:create` falla, el renderer muestra el mensaje y emite `incomplete` con la ruta
+para ofrecer su borrado. La cancelación mata Composer, PHP y el gestor de Node.
 
 ### Guardar puertos de nginx
 
