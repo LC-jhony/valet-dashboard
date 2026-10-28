@@ -5,6 +5,7 @@
   --muted: #8993a4;
   --line: #2a2a2a;
   --accent: #ff4262;
+  --accent-fill: #e11d48;
   --on-accent: #fff;
   --brand-tile: #1b1b1e;
   --brand-edge: color-mix(in srgb, var(--accent) 42%, transparent);
@@ -623,8 +624,8 @@ kbd {
   background: color-mix(in srgb, var(--panel) 86%, var(--ink) 6%);
 }
 .btn:disabled { opacity: 0.45; cursor: default; }
-.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+.btn.primary { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { filter: brightness(0.94); }
 .btn.tonal {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
   background: var(--accent-soft);
@@ -1101,7 +1102,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   font-weight: 600;
 }
 .create-steps li.on { color: var(--ink); }
-.create-steps li.on span { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.create-steps li.on span { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--on-accent); }
 .create-steps li.done span { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); color: var(--ok); }
 .create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 .create-grid .field { margin-bottom: 12px; }
@@ -1201,7 +1202,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   cursor: pointer;
 }
 .seg button:hover { background: var(--hover); color: var(--ink); }
-.seg button.on { background: var(--accent); color: var(--on-accent); }
+.seg button.on { background: var(--accent-fill); color: var(--on-accent); }
 .dot { width: 11px; height: 11px; display: inline-block; border: 1px solid transparent; border-radius: 50%; }
 
 /* ── Density and responsive ────────────────────────────────────────────── */

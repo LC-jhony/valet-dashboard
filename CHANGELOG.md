@@ -39,6 +39,10 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Cambiado
 
+- Los controles rellenos (botón **Nuevo proyecto** y segmentos activos) usan un rojo más
+  profundo con texto blanco: el rojo de marca sobre fondo oscuro no admitía blanco con
+  contraste AA, así que el acento queda para iconos, bordes y texto, y el relleno usa
+  `--accent-fill`.
 - La creación de proyectos usa `laravel new` en lugar de `composer create-project`. Solo
   se ofrece la última versión estable: el instalador no acepta una restricción.
 - Tras crear el proyecto se ajusta `APP_URL` en `.env` con el dominio y el puerto reales

@@ -22,14 +22,24 @@ const MODES: Mode[] = ['system', 'light', 'dark']
 const FONT_KEYS: FontKey[] = ['system', 'mono', 'serif', 'custom']
 const ICON_THEMES: IconThemeId[] = ['dawn', 'deep', 'dim', 'you']
 
-interface Colors { bg: string; panel: string; ink: string; muted: string; line: string; accent: string; warn: string; ok: string; nav: string; navInk: string; navMuted: string }
+interface Colors {
+  bg: string; panel: string; ink: string; muted: string; line: string; accent: string; warn: string; ok: string
+  nav: string; navInk: string; navMuted: string
+  /**
+   * Fondo de los controles rellenos (botón primario, segmentos activos). Se
+   * separa de `accent` cuando el acento es demasiado claro para llevar texto
+   * blanco: el acento sigue sirviendo para iconos, bordes y texto sobre el
+   * fondo, y el relleno se oscurece lo justo para que el blanco llegue a AA.
+   */
+  accentFill?: string
+}
 
 /** Colores tomados de los temas de VS Code incluidos en ./themes (Carbon y Min). */
 export const PALETTES: Record<PaletteId, { name: string; light: Colors; dark: Colors }> = {
   carbon: {
     name: 'Carbon',
-    dark: { bg: '#171717', panel: '#1E1E1E', ink: '#C9CCCD', muted: '#8993A4', line: '#2A2A2A', accent: '#FF4262', warn: '#E8A33D', ok: '#57A464', nav: '#171717', navInk: '#C9CCCD', navMuted: '#8993A4' },
-    light: { bg: '#FFFFFF', panel: '#F8FAFC', ink: '#2C3E50', muted: '#4A5568', line: '#E2E8F0', accent: '#FF4262', warn: '#B7791F', ok: '#276749', nav: '#F1F5F9', navInk: '#2C3E50', navMuted: '#4A5568' }
+    dark: { bg: '#171717', panel: '#1E1E1E', ink: '#C9CCCD', muted: '#8993A4', line: '#2A2A2A', accent: '#FF4262', accentFill: '#E11D48', warn: '#E8A33D', ok: '#57A464', nav: '#171717', navInk: '#C9CCCD', navMuted: '#8993A4' },
+    light: { bg: '#FFFFFF', panel: '#F8FAFC', ink: '#2C3E50', muted: '#4A5568', line: '#E2E8F0', accent: '#FF4262', accentFill: '#E11D48', warn: '#B7791F', ok: '#276749', nav: '#F1F5F9', navInk: '#2C3E50', navMuted: '#4A5568' }
   },
   min: {
     name: 'Min',
@@ -90,9 +100,11 @@ export function applySettings(s: Settings) {
   const c = PALETTES[s.palette][mode]
   const isDark = mode === 'dark'
   const root = document.documentElement
+  const accentFill = c.accentFill ?? c.accent
   const vars: Record<string, string> = {
-    bg: c.bg, panel: c.panel, ink: c.ink, muted: c.muted, line: c.line, accent: c.accent, warn: c.warn, ok: c.ok,
-    nav: c.nav, 'nav-ink': c.navInk, 'nav-muted': c.navMuted, 'on-accent': onAccent(c.accent),
+    bg: c.bg, panel: c.panel, ink: c.ink, muted: c.muted, line: c.line, accent: c.accent,
+    'accent-fill': accentFill, warn: c.warn, ok: c.ok,
+    nav: c.nav, 'nav-ink': c.navInk, 'nav-muted': c.navMuted, 'on-accent': onAccent(accentFill),
     shadow: isDark ? '0 18px 48px rgb(0 0 0 / 0.4)' : '0 18px 48px rgb(15 23 42 / 0.14)',
     'shadow-lg': isDark ? '0 24px 64px rgb(0 0 0 / 0.52)' : '0 24px 64px rgb(15 23 42 / 0.2)',
     overlay: isDark ? 'rgb(0 0 0 / 0.55)' : 'rgb(15 23 42 / 0.3)'
