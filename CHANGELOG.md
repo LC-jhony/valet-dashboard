@@ -51,6 +51,14 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
   grises secundarios del tema Min también suben al mínimo legible.
 - El tema Min oscuro usa un azul de relleno (`#0E639C`) en los controles primarios: su
   azul claro no admitía texto blanco, así que el botón llevaba texto negro.
+- El tamaño de texto de Configuración escala toda la interfaz. Antes solo crecían los
+  títulos: de 100 declaraciones de `font-size`, 89 eran píxeles fijos. Ahora hay cuatro
+  tamaños derivados de `--fs`, con suelos para no bajar de 9 px, y las alturas de
+  botones, campos, etiquetas y barras salen del mismo valor.
+- El espaciado sigue una rejilla de 4 px, con 1 y 2 px reservados para ajustes ópticos, y
+  los interlineados bajan de siete valores a tres: títulos, interfaz y texto largo.
+- El modo compacto aprieta de verdad: además de filas y paneles, reduce las alturas de
+  control y las barras mediante el token `--dense`.
 - Los controles rellenos (botón **Nuevo proyecto** y segmentos activos) usan un rojo más
   profundo con texto blanco: el rojo de marca sobre fondo oscuro no admitía blanco con
   contraste AA, así que el acento queda para iconos, bordes y texto, y el relleno usa
