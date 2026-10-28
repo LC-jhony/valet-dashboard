@@ -59,6 +59,14 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
   los interlineados bajan de siete valores a tres: títulos, interfaz y texto largo.
 - El modo compacto aprieta de verdad: además de filas y paneles, reduce las alturas de
   control y las barras mediante el token `--dense`.
+- La sección **Red y DNS** de Instalación explica antes de elegir: qué es el DNS, qué hace
+  cada modo, qué toca del sistema y qué riesgo tiene. **Seguro** (dnsmasq propio en
+  127.0.0.1:5354 con una ruta en systemd-resolved) y **Hosts** (`/etc/hosts`) se presentan
+  como las dos opciones que no tocan la red, y **Clásico** avisa de que puede dejar sin
+  WiFi hasta reiniciar. Los modos son tarjetas de opción, con la recomendada marcada, y
+  uno no disponible dice el motivo en vez de quedar solo deshabilitado. Las comprobaciones
+  del equipo dejan de ser iconos: cada una dice qué se ha encontrado. **Reparar DNS** y
+  **Sincronizar hosts** se mudan a esta sección, junto al modo al que afectan.
 - La pestaña **Correo** deja de ser una sucesión de tarjetas y pasa a ser un visor. Una
   barra compacta reúne estado, versión, protección y contadores, con los endpoints en dos
   chips de dos líneas que ya no truncan las URLs; debajo, las acciones en su propia fila,
