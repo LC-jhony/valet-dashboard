@@ -13,6 +13,7 @@ import { SettingsDialog } from './SettingsDialog'
 import { CreateProjectDialog } from './CreateProjectDialog'
 import { MailpitPage, MailpitSidebar } from './mail/MailpitPage'
 import { PrereqsPanel, CommandBlock, installBlockReason } from './PrereqsPanel'
+import { DnsPanel } from './DnsPanel'
 import { errorMessage } from './errors'
 
 type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install' | 'mail'
@@ -29,7 +30,7 @@ const SECTIONS: Section[] = [
   { id: 'php', label: 'PHP', icon: 'php', hint: 'Versiones de php-fpm instaladas. Cambia la versión en uso con un clic.' },
   { id: 'ports', label: 'Puertos', icon: 'ports', hint: 'Puertos de Valet (nginx) y Apache, con validación y reversión automática.' },
   { id: 'services', label: 'Servicios', icon: 'services', hint: 'nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis y PostgreSQL vía systemctl.' },
-  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico.' },
+  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado, repara la red y elige cómo se resuelven tus sitios de desarrollo.' },
   { id: 'mail', label: 'Correo', icon: 'mail', hint: 'Mailpit captura el correo de desarrollo: interfaz web completa, SMTP, POP3, API y Relay.' }
 ]
 
@@ -941,7 +942,18 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   const logRef = useRef<HTMLPreElement>(null)
   const env = r.data
   const installed = env?.valet.installed ?? false
-  const safeAvailable = Boolean(env?.dns.resolvedActive && env?.dns.portFree && env?.dns.resolvConfOk)
+  // El motivo se muestra junto al modo seguro: «no disponible» sin decir por
+  // qué obliga a adivinar entre tres comprobaciones.
+  const safeReason = !env
+    ? 'faltan datos del sistema'
+    : !env.dns.resolvedActive
+      ? 'systemd-resolved no está activo'
+      : !env.dns.resolvConfOk
+        ? '/etc/resolv.conf no apunta a systemd-resolved'
+        : !env.dns.portFree
+          ? `el puerto ${env.dns.port} está ocupado`
+          : ''
+  const safeAvailable = Boolean(env) && !safeReason
   const portBlocked = Boolean(env && env.portHogs.length > 0 && !(stopApache && env.portHogs.every((h) => /apache/i.test(h))))
   const repairMode: 'safe' | 'hosts' = dnsMode === 'hosts' ? 'hosts' : 'safe'
   const blockReason = installBlockReason(env, { busy, portBlocked, dnsMode, safeAvailable })
@@ -994,7 +1006,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   return (
     <Page
       title="Instalación"
-      hint="Instala Valet con Composer aislado y DNS seguro, o repara la red. Revisa las advertencias antes de usar el modo clásico."
+      hint="Instala Valet con Composer aislado, repara la red y elige cómo se resuelven tus sitios de desarrollo. El modo clásico puede cortar la conexión; los otros dos no tocan tu red."
       error={r.error || error}
       loading={r.loading}
       onRefresh={r.reload}
@@ -1072,65 +1084,18 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
         </div>
       )}
 
-      <div className="panel" id="install-dns">
-        <div className="panel-head">
-          <span className="panel-icon"><Icon name="folder_connection_open" size={18} /></span>
-          <h2 className="panel-title">Red y DNS</h2>
-          <span className={`tag ${env?.dns.dashboardActive ? 'on' : ''}`}>
-            {env?.dns.dashboardActive ? 'DNS seguro activo' : env?.dns.testResolves ? 'resuelve' : 'sin DNS'}
-          </span>
-        </div>
-        <div className="form-grid wide">
-          <div className="field">
-            <span>Modo DNS</span>
-            <span className="seg">
-              <button
-                type="button"
-                className={dnsMode === 'safe' ? 'on' : ''}
-                disabled={!safeAvailable}
-                title={safeAvailable ? 'dnsmasq en 127.0.0.1:5354 + systemd-resolved' : 'Requiere systemd-resolved activo, /etc/resolv.conf apuntando al stub y el puerto 5354 libre'}
-                onClick={() => setDnsMode('safe')}
-              >
-                Seguro
-              </button>
-              <button type="button" className={dnsMode === 'hosts' ? 'on' : ''} onClick={() => setDnsMode('hosts')}>
-                Hosts
-              </button>
-              <button type="button" className={dnsMode === 'classic' ? 'on' : ''} onClick={() => setDnsMode('classic')}>
-                Clásico
-              </button>
-            </span>
-          </div>
-        </div>
-        <ul className="side-check-list">
-          <li className={env?.dns.resolvedActive ? 'ok' : 'warn'}>
-            <Icon name="folder_connection_open" size={16} />
-            <span>systemd-resolved</span>
-            <Glyph name={env?.dns.resolvedActive ? 'check' : 'alert'} size={13} />
-          </li>
-          <li className={env?.dns.networkManager ? 'ok' : 'warn'}>
-            <Icon name="folder_connection_open" size={16} />
-            <span>NetworkManager (sin reinstalar)</span>
-            <Glyph name={env?.dns.networkManager ? 'check' : 'alert'} size={13} />
-          </li>
-          <li className={env?.dns.portFree ? 'ok' : 'warn'}>
-            <Icon name="folder_connection_open" size={16} />
-            <span>Puerto {env?.dns.port ?? 5354} para DNS</span>
-            <Glyph name={env?.dns.portFree ? 'check' : 'alert'} size={13} />
-          </li>
-          <li className={env?.dns.testResolves ? 'ok' : 'warn'}>
-            <Icon name="folder_connection_open" size={16} />
-            <span>*.{env?.dns.domain ?? 'test'}</span>
-            <Glyph name={env?.dns.testResolves ? 'check' : 'alert'} size={13} />
-          </li>
-        </ul>
-        <p className="panel-note">
-          <strong>Seguro</strong>: dnsmasq solo en 127.0.0.1:5354 y una ruta <code>~{env?.dns.domain ?? 'test'}</code> en systemd-resolved.
-          No detiene NetworkManager, no reescribe <code>/etc/resolv.conf</code> ni desactiva systemd-resolved.
-          <strong> Hosts</strong>: sin daemon DNS; sincroniza <code>/etc/hosts</code>.
-          <strong> Clásico</strong>: usa el DNS de Valet; puede cortar WiFi/DNS.
-        </p>
-      </div>
+      {env && (
+        <DnsPanel
+          env={env}
+          dnsMode={dnsMode}
+          onMode={setDnsMode}
+          installed={installed}
+          busy={busy}
+          safeReason={safeReason}
+          onRepair={() => go(() => window.api.install.repairDns(repairMode))}
+          onSync={() => go(() => window.api.install.syncHosts())}
+        />
+      )}
 
       <div className="panel" id="install-options">
         <div className="panel-head">
@@ -1163,12 +1128,6 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
               <Glyph name="close" size={13} />Cancelar
             </button>
           )}
-          <button className="btn" disabled={busy || !installed || dnsMode === 'classic' || (dnsMode === 'safe' && !safeAvailable)} onClick={() => go(() => window.api.install.repairDns(repairMode))}>
-            <Glyph name="restart" size={13} />Reparar DNS
-          </button>
-          <button className="btn" disabled={busy || !installed || dnsMode !== 'hosts'} onClick={() => go(() => window.api.install.syncHosts())}>
-            <Glyph name="restart" size={13} />Sincronizar hosts
-          </button>
           <button className="btn danger" disabled={busy || !installed || !env?.valet.isolated} onClick={() => confirm('¿Desinstalar Valet y quitar su paquete de Composer?') && go(() => window.api.install.uninstall(pkg))}>
             <Glyph name="close" size={13} />Desinstalar
           </button>
