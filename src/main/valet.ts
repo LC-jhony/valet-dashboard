@@ -7,7 +7,8 @@ import type {
   ApacheInfo, CreateProjectEvent, CreateProjectOptions, PhpInfo, PortsInfo, PortUsage,
   ProjectInfo, Service, ServiceAction, Site
 } from '../shared/types'
-import { COMPOSER_HOME, run, sudo } from './exec'
+import { COMPOSER_HOME, run } from './exec'
+import { sudo } from './elevate'
 import { prepareHelpers, privilegedEnv, runValet, unprivilegedEnv } from './helpers'
 
 const HOME = homedir()
@@ -410,6 +411,13 @@ export async function scanPorts(): Promise<PortsInfo> {
     listenUsage(), detectNginxPorts(files), apacheInfo(), isActive('nginx')
   ])
   return { config, usage, nginxActive, apache }
+}
+
+/** Puerto HTTP real de nginx, para comprobar que un sitio responde. */
+export async function valetHttpPort(): Promise<number> {
+  const files = await nginxFiles()
+  const { http } = await detectNginxPorts(files)
+  return http
 }
 
 export async function setPorts(http: number, https: number) {

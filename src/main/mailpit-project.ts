@@ -4,7 +4,8 @@ import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { MailpitProjectEnvResult, MailpitSendmailInfo } from '../shared/mailpit'
 import { phpInfo, listSites } from './valet'
-import { run, runInput, sudo } from './exec'
+import { run } from './exec'
+import { elevatedInput, sudo } from './elevate'
 import {
   configPorts, expandHome, loadConfig, nowStamp, writePrivate
 } from './mailpit-config'
@@ -131,7 +132,7 @@ async function readRootFile(file: string): Promise<string | null> {
  * la copia, el usuario podía cambiarlo y colar contenido arbitrario en /etc.
  */
 async function writeRootFile(file: string, content: string) {
-  await runInput('pkexec', ['tee', file], content)
+  await elevatedInput('tee', [file], content)
 }
 
 function replaceSendmailPath(src: string, command: string | null): string {

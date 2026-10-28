@@ -1,11 +1,13 @@
-import { homedir, userInfo } from 'node:os'
+import { userInfo } from 'node:os'
 import { join } from 'node:path'
-import { mkdir, readFile, rm, writeFile, chmod } from 'node:fs/promises'
-import { env, run, runWithEnv, COMPOSER_BIN } from './exec'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { env, runWithEnv, COMPOSER_BIN } from './exec'
+import { ASKPASS, BIN, ensureSudoHelpers } from './askpass'
+import { elevated } from './elevate'
+
+export { ASKPASS, BIN } from './askpass'
 
 export const USER_NAME = userInfo().username
-export const BIN = join(homedir(), '.valet-dashboard', 'bin')
-export const ASKPASS = join(BIN, 'askpass')
 
 /**
  * Directorio de ayudantes que se ejecutan como root. Debe ser propiedad de root:
@@ -16,22 +18,7 @@ export const ROOT_HELPER_DIR = '/usr/local/libexec/valet-dashboard'
 
 /** Ayudantes para que Valet use sudo sin terminal y sin ejecutar Valet como root. */
 export async function prepareHelpers() {
-  await mkdir(BIN, { recursive: true })
-  await writeFile(join(BIN, 'askpass'), `#!/bin/sh
-if command -v zenity >/dev/null 2>&1; then exec zenity --password --title="Valet Dashboard: contraseña de administrador"; fi
-if command -v kdialog >/dev/null 2>&1; then exec kdialog --password "Contraseña de administrador"; fi
-exit 1
-`)
-  await writeFile(join(BIN, 'sudo'), `#!/bin/sh
-# Envuelve solo las llamadas de Valet que usan "sudo env ...".
-# No altera opciones como "sudo -u", que no usa el instalador.
-case "\${1:-}" in
-  -*) exec /usr/bin/sudo -A "$@" ;;
-  *) safe="\${VALET_DASHBOARD_SAFE_DNS:-0}"; exec /usr/bin/sudo -A env "VALET_DASHBOARD_SAFE_DNS=\$safe" "$@" ;;
-esac
-`)
-  await chmod(join(BIN, 'askpass'), 0o755)
-  await chmod(join(BIN, 'sudo'), 0o755)
+  await ensureSudoHelpers()
 }
 
 export const privilegedEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
@@ -56,7 +43,7 @@ export const unprivilegedEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEn
  * @returns la ruta absoluta del script propiedad de root.
  */
 export async function installRootHelper(name: string, content: string): Promise<string> {
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error(`Nombre de ayudante no válido: ${name}`)
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error('Nombre de ayudante no válido: ' + name)
   const target = join(ROOT_HELPER_DIR, name)
   const existing = await readFile(target, 'utf8').catch(() => null)
   if (existing === content) return target
@@ -65,7 +52,7 @@ export async function installRootHelper(name: string, content: string): Promise<
   const staged = join(BIN, `.${name}.nuevo`)
   await writeFile(staged, content, { mode: 0o600 })
   try {
-    await run('pkexec', ['install', '-D', '-m', '0755', '-o', 'root', '-g', 'root', staged, target])
+    await elevated('install', ['-D', '-m', '0755', '-o', 'root', '-g', 'root', staged, target])
   } finally {
     await rm(staged, { force: true }).catch(() => '')
   }

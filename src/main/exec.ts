@@ -14,10 +14,13 @@ export const env: NodeJS.ProcessEnv = {
   PATH: [COMPOSER_BIN, process.env.PATH, SYSTEM_PATH].filter(Boolean).join(':')
 }
 
+/** Tiempo máximo por comando. El gestor de paquetes puede tardar. */
+export const TIMEOUT_MS = 900_000
+
 /** Siempre execFile con array de argumentos: nunca pasa por un shell. */
 export function runWithEnv(cmd: string, args: string[] = [], customEnv: NodeJS.ProcessEnv = env, lenient = false, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { env: customEnv, timeout: 600_000, cwd }, (err, stdout, stderr) => {
+    execFile(cmd, args, { env: customEnv, timeout: TIMEOUT_MS, cwd }, (err, stdout, stderr) => {
       if (err && !lenient) reject(new Error(stderr.trim() || err.message))
       else resolve(stdout)
     })
@@ -32,9 +35,11 @@ export function run(cmd: string, args: string[] = [], lenient = false, cwd?: str
  * Ejecuta un comando con datos por la entrada estándar. Necesario para secretos:
  * los argumentos de un proceso son visibles en `ps` para cualquier usuario.
  */
-export function runInput(cmd: string, args: string[], input: string, lenient = false): Promise<string> {
+export function runInput(
+  cmd: string, args: string[], input: string, lenient = false, customEnv: NodeJS.ProcessEnv = env
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = execFile(cmd, args, { env, timeout: 60_000 }, (err, stdout, stderr) => {
+    const child = execFile(cmd, args, { env: customEnv, timeout: 60_000 }, (err, stdout, stderr) => {
       if (err && !lenient) reject(new Error(stderr.trim() || err.message))
       else resolve(stdout)
     })
@@ -42,6 +47,3 @@ export function runInput(cmd: string, args: string[], input: string, lenient = f
     child.stdin?.end(input)
   })
 }
-
-/** Operaciones privilegiadas: polkit muestra el diálogo de contraseña. */
-export const sudo = (cmd: string, args: string[]) => run('pkexec', [cmd, ...args])
