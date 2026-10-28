@@ -109,6 +109,7 @@ function handleWithEvents(
 handleWithEvents('sites:create', 'sites:create-event', (send, o) => v.createLaravelProject(o, send))
 ipcMain.handle('install:check', (e) => { assertTrusted(e); return inst.checkEnv() })
 handleWithEvents('install:start', 'install:event', (send, o) => inst.startInstall(o, send))
+ipcMain.handle('install:cancel', (e) => { assertTrusted(e); inst.cancelInstall() })
 handleWithEvents('install:uninstall', 'install:event', (send, p) => inst.startUninstall(p, send))
 handleWithEvents('install:repairDns', 'install:event', (send, m) => inst.repairDns(m, send))
 handleWithEvents('install:syncHosts', 'install:event', (send) => inst.syncHosts(send))

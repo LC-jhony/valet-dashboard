@@ -60,6 +60,7 @@ const api: Api = {
   install: {
     check: () => call('install:check'),
     start: (o) => call('install:start', o),
+    cancel: () => call('install:cancel'),
     uninstall: (p) => call('install:uninstall', p),
     repairDns: (m) => call('install:repairDns', m),
     syncHosts: () => call('install:syncHosts'),

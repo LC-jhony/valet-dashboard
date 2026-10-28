@@ -1,15 +1,21 @@
 import { homedir } from 'node:os'
 import { join, isAbsolute, sep } from 'node:path'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { spawn } from 'node:child_process'
-import type { DnsMode, Env, InstallEvent, InstallOptions } from '../shared/types'
-import { APP_DIR, COMPOSER_BIN, COMPOSER_HOME, run } from './exec'
+import { mkdir, readFile, rm, statfs, writeFile } from 'node:fs/promises'
+import { spawn, type ChildProcess } from 'node:child_process'
+import type { DnsMode, Env, InstallEvent, InstallOptions, Prereq } from '../shared/types'
+import { APP_DIR, COMPOSER_BIN, COMPOSER_HOME, TIMEOUT_MS, run } from './exec'
 import { BACKUP_SCRIPT, DNS_SCRIPT } from './root-scripts'
 import {
   ROOT_HELPER_DIR, USER_NAME, installRootHelper, prepareHelpers, privilegedEnv, runValet, unprivilegedEnv
 } from './helpers'
-import { apacheInfo, listSites, phpInfo, scanPorts, valetDomain } from './valet'
+import { detectElevation, elevated, elevationCommand } from './elevate'
+import { classify } from './errors'
+import {
+  evaluate, hasBlocking, installArgs, mirrorHost, missingQuery, parseMissing, requiredPackages, updateArgs,
+  type Pm, type PrereqProbe
+} from './prereqs'
+import { apacheInfo, listSites, phpInfo, scanPorts, valetDomain, valetHttpPort } from './valet'
 
 const HOME = homedir()
 const PKG_RE = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i
@@ -17,17 +23,22 @@ const DNS_MODES: DnsMode[] = ['safe', 'hosts', 'classic']
 const DNS_PORT = 5354
 const DNS_HELPER = join(ROOT_HELPER_DIR, 'dns-helper.sh')
 const BACKUP_HELPER = join(ROOT_HELPER_DIR, 'backup.sh')
+const TOOL_NAMES = [
+  'php', 'composer', 'valet', 'nginx', 'dnsmasq', 'nmcli', 'certutil',
+  'xsel', 'pkexec', 'sudo', 'zenity', 'kdialog', 'jq', 'git', 'unzip'
+]
 let busy = false
+let current: ChildProcess | null = null
+let cancelRequested = false
 
-type PkgManager = 'apt' | 'dnf' | 'pacman'
 type Emit = (e: InstallEvent) => void
 type Step = { id: string; label: string; fn: () => Promise<'skip' | void> }
 
-async function distro(): Promise<{ id: string; pm: PkgManager | null }> {
+async function distro(): Promise<{ id: string; pm: Pm | null }> {
   const t = await readFile('/etc/os-release', 'utf8').catch(() => '')
   const get = (k: string) => (t.match(new RegExp(`^${k}=(.*)$`, 'm'))?.[1] ?? '').replace(/"/g, '')
   const s = `${get('ID')} ${get('ID_LIKE')}`
-  const pm: PkgManager | null = /debian|ubuntu/.test(s) ? 'apt' : /fedora|rhel|centos/.test(s) ? 'dnf' : /arch/.test(s) ? 'pacman' : null
+  const pm: Pm | null = /debian|ubuntu/.test(s) ? 'apt' : /fedora|rhel|centos/.test(s) ? 'dnf' : /arch/.test(s) ? 'pacman' : null
   return { id: get('PRETTY_NAME') || get('NAME') || get('ID') || 'desconocida', pm }
 }
 
@@ -39,32 +50,23 @@ async function phpVersion(): Promise<string | null> {
   return /^\d+\.\d+$/.test(v) ? v : null
 }
 
-const unique = (values: string[]) => [...new Set(values)]
+async function diskFreeMb(): Promise<number> {
+  const st = await statfs(HOME).catch(() => null)
+  if (!st) return Number.POSITIVE_INFINITY
+  return (st.bavail * st.bsize) / (1024 * 1024)
+}
 
-async function packages(pm: PkgManager): Promise<{ cmd: string; args: string[] }> {
-  const php = await phpVersion()
-  const base = ['curl', 'git', 'unzip', 'jq', 'xsel', 'zenity']
-  if (pm === 'apt') {
-    const phpPackages = php
-      ? [`php${php}-cli`, `php${php}-fpm`, `php${php}-curl`, `php${php}-mbstring`, `php${php}-xml`, `php${php}-zip`, `php${php}-mysql`]
-      : ['php-cli', 'php-fpm', 'php-curl', 'php-mbstring', 'php-xml', 'php-zip', 'php-mysql']
-    return {
-      cmd: 'env',
-      args: ['DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y',
-        ...unique([...base, 'libnss3-tools', 'dnsmasq-base', 'nginx', 'composer', ...phpPackages])]
-    }
-  }
-  if (pm === 'dnf') {
-    return {
-      cmd: 'dnf',
-      args: ['install', '-y', ...unique([...base, 'nss-tools', 'dnsmasq', 'nginx', 'composer',
-        'php-cli', 'php-fpm', 'php-mbstring', 'php-xml', 'php-mysqlnd'])]
-    }
-  }
-  return {
-    cmd: 'pacman',
-    args: ['-S', '--needed', '--noconfirm', ...unique([...base, 'nss', 'dnsmasq', 'nginx', 'composer', 'php'])]
-  }
+/** Comprueba que el repositorio se resuelve. `null` si no se puede saber. */
+async function networkOk(pm: Pm | null): Promise<boolean | null> {
+  if (!pm) return null
+  const out = await run('getent', ['hosts', mirrorHost(pm)], true)
+  return out.trim() !== ''
+}
+
+async function probeTools(): Promise<Record<string, boolean>> {
+  const tools: Record<string, boolean> = {}
+  await Promise.all(TOOL_NAMES.map(async (t) => { tools[t] = await has(t) }))
+  return tools
 }
 
 function normalizePkg(p: string): string {
@@ -81,7 +83,7 @@ async function prepareInstallScripts() {
   await installRootHelper('backup.sh', BACKUP_SCRIPT)
 }
 
-type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv; env?: NodeJS.ProcessEnv }
+type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv; env?: NodeJS.ProcessEnv; pm?: Pm | null }
 
 /**
  * Composer ejecuta scripts y plugins de paquetes de terceros: su entorno no
@@ -90,24 +92,49 @@ type ShOptions = { cwd?: string; extraEnv?: NodeJS.ProcessEnv; env?: NodeJS.Proc
 const composerEnv = (): NodeJS.ProcessEnv =>
   unprivilegedEnv({ COMPOSER_HOME, COMPOSER_NO_INTERACTION: '1' })
 
+/** Ejecuta un paso cualquiera y, si falla, emite el diagnóstico clasificado. */
 function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
   emit({ type: 'log', text: `$ ${cmd} ${args.join(' ')}\n` })
   return new Promise((resolve, reject) => {
     const c = spawn(cmd, args, { env: opts.env ?? privilegedEnv(opts.extraEnv), cwd: opts.cwd })
+    current = c
+    let stderr = ''
+    let timedOut = false
+    const timer = setTimeout(() => { timedOut = true; c.kill('SIGTERM') }, TIMEOUT_MS)
     const out = (b: Buffer) => emit({ type: 'log', text: b.toString() })
-    c.stdout.on('data', out)
-    c.stderr.on('data', out)
-    c.on('error', reject)
-    c.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} terminó con código ${code}`))))
+    c.stdout?.on('data', out)
+    c.stderr?.on('data', (b: Buffer) => { stderr += b.toString(); out(b) })
+    c.on('error', (e) => { clearTimeout(timer); current = null; reject(e) })
+    c.on('close', (code) => {
+      clearTimeout(timer)
+      current = null
+      if (cancelRequested) {
+        cancelRequested = false
+        return reject(new Error('Operación cancelada'))
+      }
+      if (code === 0) return resolve()
+      const error = classify({ cmd, args, code, stderr, killed: timedOut, pm: opts.pm ?? null })
+      emit({ type: 'error', ...error })
+      reject(new Error(error.title))
+    })
   })
+}
+
+/** Igual que {@link sh}, con la elevación que haya disponible. */
+async function shElevated(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
+  const how = await elevationCommand()
+  if (!how) throw new Error('No hay método de elevación: instala polkit (pkexec) o sudo con zenity')
+  return sh(emit, how.cmd, [...how.args, cmd, ...args], opts)
 }
 
 async function runSteps(steps: Step[], emit: Emit) {
   if (busy) throw new Error('Ya hay una operación en curso')
   busy = true
+  cancelRequested = false
   try {
     emit({ type: 'plan', steps: steps.map(({ id, label }) => ({ id, label })) })
     for (const s of steps) {
+      if (cancelRequested) throw new Error('Operación cancelada')
       emit({ type: 'step', id: s.id, status: 'run' })
       try {
         emit({ type: 'step', id: s.id, status: (await s.fn()) === 'skip' ? 'skip' : 'ok' })
@@ -119,7 +146,15 @@ async function runSteps(steps: Step[], emit: Emit) {
     }
   } finally {
     busy = false
+    cancelRequested = false
   }
+}
+
+/** Detiene el comando en curso. La interfaz vuelve a quedar utilizable. */
+export function cancelInstall(): void {
+  if (!busy) return
+  cancelRequested = true
+  current?.kill('SIGTERM')
 }
 
 function stamp() {
@@ -130,7 +165,7 @@ async function backupSystem(emit: Emit): Promise<string> {
   const dest = join(APP_DIR, 'backups', stamp(), 'system')
   if (!dest.startsWith(APP_DIR + sep)) throw new Error('Ruta de copia de seguridad no válida')
   await mkdir(APP_DIR, { recursive: true })
-  await run('pkexec', [BACKUP_HELPER, dest, USER_NAME])
+  await elevated(BACKUP_HELPER, [dest, USER_NAME])
   emit({ type: 'log', text: `Copia de seguridad: ${dest}\n` })
   return dest
 }
@@ -185,7 +220,7 @@ async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
   const domain = await valetDomain().catch(() => 'test')
   const backupDir = join(APP_DIR, 'backups', stamp(), 'dns')
   const hostsFile = mode === 'hosts' ? await writeHostsFile(emit) : ''
-  await run('pkexec', [DNS_HELPER, mode, domain, backupDir, hostsFile, USER_NAME])
+  await elevated(DNS_HELPER, [mode, domain, backupDir, hostsFile, USER_NAME])
   const name = `valet-dashboard.${domain}`
   const resolved = (await run('getent', ['hosts', name], true)).trim()
   if (!resolved.includes('127.0.0.1')) {
@@ -197,19 +232,41 @@ async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
 async function removeDns(emit: Emit) {
   const domain = await valetDomain().catch(() => 'test')
   const backupDir = join(APP_DIR, 'backups', stamp(), 'dns-remove')
-  await run('pkexec', [DNS_HELPER, 'remove', domain, backupDir, '', USER_NAME])
+  await elevated(DNS_HELPER, ['remove', domain, backupDir, '', USER_NAME])
   emit({ type: 'log', text: 'DNS del dashboard eliminado.\n' })
 }
 
-async function requirePkexec() {
-  if (!(await has('pkexec'))) throw new Error('Falta pkexec (polkit); instálalo para autenticar los cambios de red.')
+async function requireElevation() {
+  if (!(await detectElevation())) {
+    throw new Error('Falta un método de elevación: instala polkit (pkexec) o sudo con zenity')
+  }
+}
+
+/** Paquetes de la lista que aún no están instalados. */
+async function missingPackages(pm: Pm, packages: string[]): Promise<string[]> {
+  const q = missingQuery(pm, packages)
+  const out = await run(q.cmd, q.args, true)
+  return parseMissing(pm, packages, out)
 }
 
 export async function checkEnv(): Promise<Env> {
   const d = await distro()
-  const toolNames = ['php', 'composer', 'valet', 'nginx', 'dnsmasq', 'nmcli', 'certutil', 'xsel', 'pkexec', 'sudo', 'zenity']
-  const tools: Record<string, boolean> = {}
-  await Promise.all(toolNames.map(async (t) => { tools[t] = await has(t) }))
+  const [tools, systemd, disk, network, elevation] = await Promise.all([
+    probeTools(),
+    Promise.resolve(existsSync('/run/systemd/system')),
+    diskFreeMb(),
+    networkOk(d.pm),
+    detectElevation()
+  ])
+  const probe: PrereqProbe = {
+    pm: d.pm,
+    systemd,
+    graphical: Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY),
+    diskFreeMb: disk,
+    network,
+    tools
+  }
+  const prereqs: Prereq[] = evaluate(probe)
 
   const [ports, nm, resolved, dnsmasqService, dashboardService, valetDnsService, udp, resolvTarget, resolvContent, show, domain, isolatedValet] = await Promise.all([
     scanPorts(),
@@ -262,7 +319,12 @@ export async function checkEnv(): Promise<Env> {
   if (dnsmasqService) warnings.push(`El servicio dnsmasq del sistema está activo; el DNS seguro usa una instancia propia en ${DNS_PORT}.`)
   if (stockDns) warnings.push('Hay restos del DNS clásico de Valet; el instalador no los modifica. Si el WiFi/DNS falla, restáuralos antes de continuar.')
   if (!resolvConfOk) warnings.push('/etc/resolv.conf no apunta a systemd-resolved; revisa el DNS antes de usar el modo seguro.')
-  if (!d.pm) warnings.push('Distribución no soportada para instalar dependencias automáticamente.')
+  if (!d.pm) warnings.push('Distribución no soportada para instalar paquetes automáticamente; el panel seguirá con lo que ya esté instalado.')
+
+  const php = await phpInfo().catch(() => null)
+  if (php?.current && php.versions.length && !php.versions.includes(php.current)) {
+    warnings.push(`Valet usará PHP ${php.current}, pero no hay php${php.current}-fpm. Instala la versión que coincida.`)
+  }
 
   const recommendedDnsMode: DnsMode = resolved && portFree && resolvConfOk && (tools.dnsmasq || d.pm === 'apt') ? 'safe' : 'hosts'
 
@@ -297,6 +359,8 @@ export async function checkEnv(): Promise<Env> {
       version: valetVersion,
       isolated
     },
+    prereqs,
+    elevation,
     warnings,
     recommendedDnsMode
   }
@@ -315,23 +379,72 @@ function resolveParkDir(input: string): string {
   return out
 }
 
+/**
+ * Crea un sitio temporal y pide su `index.php` por HTTP. Es la única prueba que
+ * responde de verdad «¿funciona Valet?»: cubre nginx, PHP-FPM y permisos.
+ */
+async function smokeTest(parkDir: string, emit: Emit): Promise<'skip' | void> {
+  const dir = join(parkDir, 'valet-dashboard-health')
+  if (!dir.startsWith(parkDir + sep)) throw new Error('Ruta de prueba no válida')
+  if (existsSync(dir)) {
+    emit({ type: 'log', text: `Ya existe ${dir}; se omite la prueba de humo.\n` })
+    return 'skip'
+  }
+  if (!(await has('curl'))) {
+    emit({ type: 'log', text: 'No hay curl: se omite la prueba de humo.\n' })
+    return 'skip'
+  }
+  const domain = await valetDomain().catch(() => 'test')
+  const port = await valetHttpPort()
+  const body = join(APP_DIR, 'smoke-body')
+  try {
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, 'index.php'), "<?php echo 'valet-ok';\n")
+    const status = (await run('curl', [
+      '-sS', '-m', '10', '-o', body, '-w', '%{http_code}',
+      '-H', `Host: valet-dashboard-health.${domain}`,
+      `http://127.0.0.1:${port}/index.php`
+    ], true)).trim()
+    const text = await readFile(body, 'utf8').catch(() => '')
+    if (status === '200' && text.includes('valet-ok')) {
+      emit({ type: 'log', text: `Prueba de humo correcta: nginx y PHP-FPM responden en el puerto ${port}.\n` })
+      return
+    }
+    if (status === '502') {
+      throw new Error('PHP-FPM no responde: revisa el socket de ~/.valet y el servicio php-fpm')
+    }
+    if (status === '404') {
+      throw new Error('nginx no encuentra el sitio de prueba: revisa la configuración de Valet')
+    }
+    if (!status || status === '000' || status === '7') {
+      throw new Error(`nginx no responde en el puerto ${port}: revisa systemctl status nginx`)
+    }
+    throw new Error(`La prueba de humo devolvió HTTP ${status}`)
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => '')
+    await rm(body, { force: true }).catch(() => '')
+  }
+}
+
 export async function startInstall(o: InstallOptions, emit: Emit) {
   if (!o || typeof o !== 'object') throw new Error('Opciones de instalación no válidas')
   const pkg = normalizePkg(o.pkg)
   const dnsMode = normalizeDnsMode(o.dnsMode)
   const parkDir = resolveParkDir(o.parkDir)
   const d = await distro()
-  if (!d.pm) throw new Error(`Distribución no soportada: ${d.id}. Instala las dependencias a mano.`)
   await prepareHelpers()
-  await prepareInstallScripts()
 
   const S = (id: string, label: string, fn: Step['fn']): Step => ({ id, label, fn })
   let preflight: Env | undefined
 
   await runSteps([
-    S('preflight', 'Comprobar puertos, red y DNS', async () => {
+    S('preflight', 'Comprobar requisitos, puertos y DNS', async () => {
       const info = await checkEnv()
       preflight = info
+      const blocking = info.prereqs.filter((p) => !p.ok && p.blocking)
+      if (hasBlocking(info.prereqs)) {
+        throw new Error(`Faltan requisitos: ${blocking.map((p) => p.label).join(', ')}. Sigue la guía de la pestaña Instalación.`)
+      }
       if (info.portHogs.length && !(o.stopApache && info.portHogs.every((h) => /apache/i.test(h)))) {
         throw new Error(`Libera los puertos 80/443 antes de instalar: ${info.portHogs.join(', ')}`)
       }
@@ -341,25 +454,45 @@ export async function startInstall(o: InstallOptions, emit: Emit) {
         if (!info.dns.dnsmasqBinary && info.pm !== 'apt') throw new Error('Falta dnsmasq; instálalo o usa el modo hosts.')
         if (!info.dns.resolvConfOk) throw new Error('/etc/resolv.conf no apunta a systemd-resolved; elige el modo hosts.')
       }
-      if (!info.tools.pkexec) throw new Error('Falta pkexec (polkit); instálalo para autenticar la instalación.')
+      if (!info.elevation) throw new Error('Falta un método de elevación: instala polkit (pkexec) o sudo con zenity')
+      emit({ type: 'log', text: `Elevación: ${info.elevation === 'pkexec' ? 'polkit (pkexec)' : 'sudo con ventana de contraseña'}\n` })
     }),
-    S('backup', 'Crear copia de seguridad', async () => { await backupSystem(emit) }),
+    S('backup', 'Crear copia de seguridad', async () => {
+      await prepareInstallScripts()
+      await backupSystem(emit)
+    }),
     S('apache', 'Liberar los puertos 80/443 (Apache)', async () => {
       if (!o.stopApache) return 'skip'
       const apache = await apacheInfo()
       const apacheHog = preflight?.portHogs.some((h) => /apache/i.test(h)) ?? false
       if (!apache.active || (!apacheHog && ![apache.http, apache.https].some((p) => p === 80 || p === 443))) return 'skip'
-      await sh(emit, 'pkexec', ['systemctl', 'disable', '--now', 'apache2'])
-    }),
-    S('apt-update', 'Actualizar índices del sistema', async () => {
-      if (d.pm !== 'apt') return 'skip'
-      await sh(emit, 'pkexec', ['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'update'])
+      await shElevated(emit, 'systemctl', ['disable', '--now', 'apache2'])
     }),
     S('deps', 'Instalar dependencias del sistema', async () => {
-      const p = await packages(d.pm as PkgManager)
-      await sh(emit, 'pkexec', [p.cmd, ...p.args])
+      const php = await phpVersion()
+      const pm = d.pm
+      if (!pm) {
+        emit({ type: 'log', text: 'Sin gestor de paquetes compatible: se usan los paquetes ya instalados.\n' })
+        return 'skip'
+      }
+      const packages = requiredPackages(pm, php)
+      const missing = await missingPackages(pm, packages)
+      if (!missing.length) {
+        emit({ type: 'log', text: 'Dependencias del sistema ya instaladas.\n' })
+        return 'skip'
+      }
+      emit({ type: 'log', text: `Faltan ${missing.length} paquetes: ${missing.join(', ')}\n` })
+      const update = updateArgs(pm)
+      if (update) await shElevated(emit, update.cmd, update.args, { pm })
+      const install = installArgs(pm, missing)
+      await shElevated(emit, install.cmd, install.args, { pm })
       if (dnsMode === 'safe' && !existsSync('/usr/sbin/dnsmasq')) {
         throw new Error('No se instaló dnsmasq-base; elige el modo hosts o instálalo a mano.')
+      }
+      const after = await scanPorts().catch(() => null)
+      const bound = after?.usage.filter((u) => [80, 443].includes(u.port)) ?? []
+      if (bound.length) {
+        emit({ type: 'log', text: `Puertos en uso tras instalar: ${bound.map((u) => `${u.port} (${u.process})`).join(', ')}\n` })
       }
     }),
     S('helpers', 'Preparar ayudante de contraseña', async () => {
@@ -388,6 +521,11 @@ export async function startInstall(o: InstallOptions, emit: Emit) {
       await sh(emit, 'valet', ['install'], {
         extraEnv: { VALET_DASHBOARD_SAFE_DNS: dnsMode === 'classic' ? '0' : '1' }
       })
+      try {
+        await shElevated(emit, 'nginx', ['-t'])
+      } catch (e) {
+        throw new Error(`La configuración de nginx no es válida: ${(e as Error).message}`)
+      }
     }),
     S('park', 'Registrar carpeta de proyectos', async () => {
       await mkdir(parkDir, { recursive: true })
@@ -412,13 +550,14 @@ export async function startInstall(o: InstallOptions, emit: Emit) {
       const check = await run('getent', ['hosts', `valet-dashboard.${domain}`], true)
       if (!check.includes('127.0.0.1')) throw new Error(`No se pudo resolver valet-dashboard.${domain}.`)
       emit({ type: 'log', text: `Valet listo: ${version.split('\n')[0]}\n` })
-    })
+    }),
+    S('smoke', 'Probar un sitio de extremo a extremo', async () => { await smokeTest(parkDir, emit) })
   ], emit)
 }
 
 export async function startUninstall(pkgInput: string, emit: Emit) {
   const pkg = normalizePkg(pkgInput)
-  await requirePkexec()
+  await requireElevation()
   await prepareInstallScripts()
   await prepareHelpers()
   const isolatedValet = existsSync(join(COMPOSER_BIN, 'valet'))
@@ -453,7 +592,7 @@ export async function startUninstall(pkgInput: string, emit: Emit) {
 
 export async function repairDns(mode: DnsMode, emit: Emit) {
   if (mode !== 'safe' && mode !== 'hosts') throw new Error('Modo DNS no válido para reparación')
-  await requirePkexec()
+  await requireElevation()
   await prepareInstallScripts()
   await prepareHelpers()
   await runSteps([

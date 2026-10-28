@@ -12,6 +12,7 @@ import { modalsOpen } from './Modal'
 import { SettingsDialog } from './SettingsDialog'
 import { CreateProjectDialog } from './CreateProjectDialog'
 import { MailpitPage, MailpitSidebar } from './mail/MailpitPage'
+import { PrereqsPanel, CommandBlock, installBlockReason } from './PrereqsPanel'
 import { errorMessage } from './errors'
 
 type Tab = 'sites' | 'php' | 'ports' | 'services' | 'install' | 'mail'
@@ -433,13 +434,17 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
           </div>
           <div className="side-group-label">Herramientas</div>
           <ul className="side-check-list">
-            {Object.entries(TOOLS).map(([key, tool]) => (
-              <li key={key} className={env.tools[key] ? 'ok' : 'warn'}>
-                <Icon name={tool.icon} size={16} />
-                <span>{tool.label}</span>
-                <Glyph name={env.tools[key] ? 'check' : 'alert'} size={13} />
-              </li>
-            ))}
+            {Object.entries(TOOLS).map(([key, tool]) => {
+              // pkexec puede faltar si la elevación va por sudo.
+              const ok = key === 'pkexec' ? Boolean(env.elevation) : env.tools[key]
+              return (
+                <li key={key} className={ok ? 'ok' : 'warn'}>
+                  <Icon name={tool.icon} size={16} />
+                  <span>{tool.label}</span>
+                  <Glyph name={ok ? 'check' : 'alert'} size={13} />
+                </li>
+              )
+            })}
           </ul>
           <div className="side-group-label">Red y DNS</div>
           <ul className="side-check-list">
@@ -465,6 +470,11 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
             </li>
           </ul>
           {env.composer.conflict && <SideAlert>{env.composer.conflictDetail} Se usará Composer aislado.</SideAlert>}
+          {env.prereqs.some((p) => !p.ok && p.blocking) && (
+            <SideAlert>
+              {env.prereqs.filter((p) => !p.ok && p.blocking).map((p) => p.label).join(', ')}: revisa la guía de requisitos previos.
+            </SideAlert>
+          )}
           {env.valet.installed && !env.valet.isolated && <SideAlert>Valet externo detectado. El dashboard usa su propio Composer aislado.</SideAlert>}
           {env.warnings.some((w) => w.includes('DNS clásico')) && <SideAlert>Hay restos del DNS clásico de Valet. Revisa la red antes de continuar.</SideAlert>}
           {!env.dns.resolvedActive && <SideAlert>systemd-resolved no está activo. Usa el modo hosts para no tocar la red.</SideAlert>}
@@ -927,16 +937,21 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   const [log, setLog] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [failure, setFailure] = useState<{ title: string; detail: string; hint: string; commands: string[] } | null>(null)
   const logRef = useRef<HTMLPreElement>(null)
   const env = r.data
   const installed = env?.valet.installed ?? false
   const safeAvailable = Boolean(env?.dns.resolvedActive && env?.dns.portFree && env?.dns.resolvConfOk)
   const portBlocked = Boolean(env && env.portHogs.length > 0 && !(stopApache && env.portHogs.every((h) => /apache/i.test(h))))
   const repairMode: 'safe' | 'hosts' = dnsMode === 'hosts' ? 'hosts' : 'safe'
+  const blockReason = installBlockReason(env, { busy, portBlocked, dnsMode, safeAvailable })
+  // `pkexec` puede faltar y aun así haber elevación: sudo con el diálogo de zenity.
+  const toolOk = (key: string) => (key === 'pkexec' ? Boolean(env?.elevation) : Boolean(env?.tools[key]))
 
   useEffect(() => window.api.install.onEvent((ev) => {
     if (ev.type === 'plan') setSteps(ev.steps.map((s) => ({ ...s, status: 'wait' })))
     else if (ev.type === 'step') setSteps((p) => p.map((s) => (s.id === ev.id ? { ...s, status: ev.status } : s)))
+    else if (ev.type === 'error') setFailure({ title: ev.title, detail: ev.detail, hint: ev.hint, commands: ev.commands })
     else setLog((l) => (l + ev.text).slice(-60000))
   }), [])
 
@@ -954,12 +969,15 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   const go = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError('')
+    setFailure(null)
     setLog('')
     setSteps([])
     try {
       await fn()
     } catch (e) {
-      setError(errorMessage(e))
+      const message = errorMessage(e)
+      // Cancelar no es un fallo: no merece el cartel rojo.
+      if (message !== 'Operación cancelada') setError(message)
     }
     setBusy(false)
     onChanged()
@@ -1000,11 +1018,11 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
                   <span className="row-icon"><Icon name={tool.icon} size={18} /></span>
                   <div className="row-text">
                     <strong>{tool.label}</strong>
-                    <small>{tool.label === 'Valet' ? (env.valet.isolated ? 'Composer aislado' : 'valet-linux') : 'requerido'}</small>
+                    <small>{tool.label === 'Valet' ? (env.valet.isolated ? 'Composer aislado' : 'valet-linux') : key === 'pkexec' && env.elevation === 'sudo' ? 'vía sudo' : 'requerido'}</small>
                   </div>
                 </div>
                 <div className="row-meta">
-                  <span className={`tag ${env.tools[key] ? 'on' : 'warn'}`}>{env.tools[key] ? 'instalado' : 'falta'}</span>
+                  <span className={`tag ${toolOk(key) ? 'on' : 'warn'}`}>{toolOk(key) ? 'instalado' : 'falta'}</span>
                   {key === 'composer' && env.composer.conflict && <span className="tag warn">conflicto global</span>}
                 </div>
               </li>
@@ -1037,7 +1055,21 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
               </ul>
             </div>
           )}
+
+          <PrereqsPanel env={env} onRecheck={r.reload} />
         </>
+      )}
+
+      {failure && (
+        <div className="panel" id="install-error">
+          <div className="panel-head">
+            <span className="panel-icon"><Icon name="folder_warning_open" size={18} /></span>
+            <h2 className="panel-title">{failure.title}</h2>
+          </div>
+          <p className="panel-note">{failure.detail}</p>
+          <p className="panel-note">{failure.hint}</p>
+          {failure.commands.length > 0 && <CommandBlock commands={failure.commands} />}
+        </div>
       )}
 
       <div className="panel" id="install-dns">
@@ -1116,11 +1148,21 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
         <div className="panel-actions">
           <button
             className="btn primary"
-            disabled={busy || !env?.pm || portBlocked || (dnsMode === 'safe' && !safeAvailable)}
+            disabled={busy || Boolean(blockReason)}
+            aria-describedby={blockReason ? 'install-block-reason' : undefined}
             onClick={start}
           >
-            <Glyph name="install" size={14} />{busy ? 'Trabajando…' : installed ? 'Reparar instalación' : 'Instalar Valet'}
+            <Glyph name="install" size={14} />{busy
+              ? 'Trabajando…'
+              : installed
+                ? 'Reparar instalación'
+                : env?.pm ? 'Instalar Valet' : 'Continuar con lo instalado'}
           </button>
+          {busy && (
+            <button className="btn" onClick={() => void window.api.install.cancel()}>
+              <Glyph name="close" size={13} />Cancelar
+            </button>
+          )}
           <button className="btn" disabled={busy || !installed || dnsMode === 'classic' || (dnsMode === 'safe' && !safeAvailable)} onClick={() => go(() => window.api.install.repairDns(repairMode))}>
             <Glyph name="restart" size={13} />Reparar DNS
           </button>
@@ -1131,6 +1173,9 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
             <Glyph name="close" size={13} />Desinstalar
           </button>
         </div>
+        {blockReason && (
+          <p className="panel-warn" id="install-block-reason">{blockReason}</p>
+        )}
         <p className="panel-note">
           Se usa <code>{env?.composer.isolatedHome ?? '~/.config/valet-dashboard/composer'}</code>, no el Composer global.
           Se pedirá la contraseña de administrador en ventanas del sistema.

@@ -846,6 +846,50 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   font-size: 11px;
   line-height: 1.6;
 }
+.panel-warn {
+  flex: 1 0 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* ── Requisitos previos y comandos ─────────────────────────────────────── */
+
+.prereq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.prereq-list li {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.prereq-list li.blocking { border-color: color-mix(in srgb, var(--warn) 38%, var(--line)); }
+.prereq-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.prereq-head .glyph { align-self: center; color: var(--warn); flex: none; }
+.prereq-list li.warning .prereq-head .glyph { color: var(--muted); }
+.prereq-head strong { color: var(--ink); font-size: 12px; font-weight: 600; }
+.prereq-detail { flex: 1 0 100%; color: var(--muted); font-size: 11px; line-height: 1.55; }
+
+.cmd-block { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; }
+.cmd {
+  flex: 1;
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+  user-select: text;
+}
 
 .section-head {
   display: flex;

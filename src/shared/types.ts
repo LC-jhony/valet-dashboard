@@ -83,11 +83,26 @@ export interface Api {
   install: {
     check(): Promise<Env>
     start(opts: InstallOptions): Promise<void>
+    cancel(): Promise<void>
     uninstall(pkg: string): Promise<void>
     repairDns(mode: DnsMode): Promise<void>
     syncHosts(): Promise<void>
     onEvent(cb: (e: InstallEvent) => void): () => void
   }
+}
+
+/** Requisitos que el panel no puede resolver por sí mismo. */
+export type PrereqId = 'systemd' | 'elevation' | 'sudo' | 'askpass' | 'packages' | 'network' | 'disk'
+
+export interface Prereq {
+  id: PrereqId
+  label: string
+  ok: boolean
+  /** Un requisito bloqueante impide instalar hasta que se resuelva. */
+  blocking: boolean
+  detail: string
+  /** Comandos exactos para resolverlo a mano. Vacío si ya está resuelto. */
+  commands: string[]
 }
 
 export interface Env {
@@ -100,6 +115,9 @@ export interface Env {
   valet: ValetInfo
   warnings: string[]
   recommendedDnsMode: DnsMode
+  prereqs: Prereq[]
+  /** Cómo se pedirá la contraseña de administrador. */
+  elevation: 'pkexec' | 'sudo' | null
 }
 
 export interface InstallOptions {
@@ -113,3 +131,4 @@ export type InstallEvent =
   | { type: 'plan'; steps: { id: string; label: string }[] }
   | { type: 'step'; id: string; status: StepStatus }
   | { type: 'log'; text: string }
+  | { type: 'error'; title: string; detail: string; hint: string; commands: string[] }
