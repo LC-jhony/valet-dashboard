@@ -20,7 +20,7 @@
   --font: "Cantarell", "Ubuntu", "Noto Sans", system-ui, sans-serif;
   --fs: 15px;
   --rail-w: 48px;
-  --status-h: clamp(24px, calc(var(--fs) * 26 / 15), 34px);
+  --status-h: calc(clamp(24px, calc(var(--fs) * 26 / 15), 34px) - var(--dense) * 2px);
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -41,7 +41,7 @@
   --h-field: calc(clamp(30px, calc(var(--fs) * 32 / 15), 40px) - var(--dense) * 2px);
   --h-compact: calc(clamp(22px, calc(var(--fs) * 26 / 15), 34px) - var(--dense) * 2px);
   --h-tag: clamp(18px, calc(var(--fs) * 20 / 15), 26px);
-  --h-bar: clamp(38px, calc(var(--fs) * 42 / 15), 50px);
+  --h-bar: calc(clamp(38px, calc(var(--fs) * 42 / 15), 50px) - var(--dense) * 4px);
   /* Tres interlineados: títulos, interfaz y texto largo. */
   --lh-tight: 1.25;
   --lh-ui: 1.45;
@@ -1256,10 +1256,14 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
 
 /* ── Density and responsive ────────────────────────────────────────────── */
 
-[data-compact="true"] .editor { padding-top: 18px; padding-bottom: 28px; }
-[data-compact="true"] .rows li { padding-top: 7px; padding-bottom: 7px; }
-[data-compact="true"] .side-item { padding-top: 5px; padding-bottom: 5px; }
-[data-compact="true"] .panel { padding: 13px; }
+[data-compact="true"] { --dense: 1; }
+[data-compact="true"] .editor { padding-top: 16px; padding-bottom: 24px; }
+[data-compact="true"] .rows li { padding-top: 8px; padding-bottom: 8px; }
+[data-compact="true"] .side-item { padding-top: 4px; padding-bottom: 4px; }
+[data-compact="true"] .panel { padding: 12px; }
+[data-compact="true"] .search-box { height: calc(var(--h-control) - 4px); }
+[data-compact="true"] .row-actions .btn { padding-inline: 6px; }
+[data-compact="true"] .create-preview { padding-block: 4px; }
 
 @media (max-width: 900px) {
   .shell,
@@ -1437,7 +1441,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   height: 5px;
   margin-top: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 15%, var(--line));
 }
 .mp-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 160ms ease; }
@@ -1511,7 +1515,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   height: var(--h-compact);
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--muted);
   font: inherit;
@@ -1582,7 +1586,7 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
   width: 34px;
   height: 19px;
   margin-top: 1px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--muted) 30%, var(--line));
   transition: background var(--t);
 }
