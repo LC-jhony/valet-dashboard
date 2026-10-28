@@ -22,7 +22,7 @@ const MODES: Mode[] = ['system', 'light', 'dark']
 const FONT_KEYS: FontKey[] = ['system', 'mono', 'serif', 'custom']
 const ICON_THEMES: IconThemeId[] = ['dawn', 'deep', 'dim', 'you']
 
-interface Colors {
+export interface Colors {
   bg: string; panel: string; ink: string; muted: string; line: string; accent: string; warn: string; ok: string
   nav: string; navInk: string; navMuted: string
   /**
@@ -43,7 +43,7 @@ export const PALETTES: Record<PaletteId, { name: string; light: Colors; dark: Co
   },
   min: {
     name: 'Min',
-    dark: { bg: '#1F1F1F', panel: '#262626', ink: '#E0E0E0', muted: '#939393', line: '#363636', accent: '#79B8FF', warn: '#F97583', ok: '#7BC47F', nav: '#1A1A1A', navInk: '#C1C1C1', navMuted: '#7D7D7D' },
+    dark: { bg: '#1F1F1F', panel: '#262626', ink: '#E0E0E0', muted: '#939393', line: '#363636', accent: '#79B8FF', accentFill: '#0E639C', warn: '#F97583', ok: '#7BC47F', nav: '#1A1A1A', navInk: '#C1C1C1', navMuted: '#7D7D7D' },
     light: { bg: '#FFFFFF', panel: '#F6F6F6', ink: '#212121', muted: '#757575', line: '#E0E0E0', accent: '#1976D2', warn: '#D32F2F', ok: '#22863A', nav: '#F6F6F6', navInk: '#424242', navMuted: '#757575' }
   }
 }
@@ -83,6 +83,104 @@ export function onAccent(hex: string): string {
   return contrastRatio(bg, luminance(dark)) >= contrastRatio(bg, luminance(light)) ? dark : light
 }
 
+const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+
+const toHex = (rgb: number[]) =>
+  '#' + rgb.map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('')
+
+/** Mezcla opaca: `weight` de `a` y el resto de `b`, como `color-mix` en srgb. */
+export function mix(a: string, b: string, weight: number): string {
+  const [x, y] = [channels(a), channels(b)]
+  return toHex(x.map((v, i) => v * weight + y[i] * (1 - weight)))
+}
+
+/** `fg` con alfa `alpha` sobre un fondo opaco. */
+export const over = (fg: string, bg: string, alpha: number) => mix(fg, bg, alpha)
+
+const toHsl = (hex: string): [number, number, number] => {
+  const [r, g, b] = channels(hex).map((v) => v / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  const d = max - min
+  if (!d) return [0, 0, l]
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h / 6, s, l]
+}
+
+const fromHsl = (h: number, s: number, l: number): string => {
+  if (s <= 0) {
+    const v = l * 255
+    return toHex([v, v, v])
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const channel = (t: number) => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+  }
+  return toHex([channel(h + 1 / 3) * 255, channel(h) * 255, channel(h - 1 / 3) * 255])
+}
+
+/**
+ * Aclara (`lighten`) u oscurece `fg` manteniendo tono y saturación hasta que
+ * alcance `target` sobre todos los fondos indicados. Cambiar solo la
+ * luminosidad conserva el color de marca; mezclar con el gris del texto lo
+ * apagaría (un ámbar de aviso acabaría marrón).
+ */
+export function readableOn(fg: string, bgs: string[], lighten: boolean, target = 4.5): string {
+  const passes = (c: string) => bgs.every((b) => contrastRatio(luminance(c), luminance(b)) >= target)
+  if (passes(fg)) return fg
+  const [h, s, l] = toHsl(fg)
+  const dir = lighten ? 0.02 : -0.02
+  for (let step = 1; step <= 50; step++) {
+    const next = l + dir * step
+    if (next > 1 || next < 0) break
+    const c = fromHsl(h, s, next)
+    if (passes(c)) return c
+  }
+  return lighten ? '#FFFFFF' : '#111111'
+}
+
+export interface Inks { accent: string; warn: string; ok: string; muted: string; navMuted: string }
+
+/**
+ * Tonos de texto derivados de la paleta. Un mismo color no sirve para icono y
+ * para texto: el acento de Carbon claro da 3,2:1 sobre blanco y 2,8:1 sobre su
+ * propio tinte, así que el texto se oscurece (o se aclara en oscuro) lo justo.
+ * Los fondos del cálculo son los que usa la hoja de estilos: panel, fondo, barra
+ * lateral y los tintes de acento (13 %), aviso (15 %) y verde (12 %).
+ */
+export function deriveInks(c: Colors): Inks {
+  const lighten = luminance(c.ink) > luminance(c.bg)
+  const accentBgs = [
+    c.panel, c.bg, c.nav,
+    over(c.accent, c.panel, 0.13), over(c.accent, c.bg, 0.13), over(c.accent, c.nav, 0.11)
+  ]
+  const warnBgs = [
+    c.panel, c.bg, c.nav,
+    over(c.warn, c.panel, 0.15), over(c.warn, c.bg, 0.15), over(c.warn, c.nav, 0.15)
+  ]
+  const okBgs = [c.panel, c.bg, over(c.ok, c.panel, 0.12), over(c.ok, c.bg, 0.12)]
+  const mutedBgs = [
+    c.panel, c.bg, mix(c.panel, c.bg, 0.4),
+    over(c.ink, c.panel, 0.06), over(c.ink, c.bg, 0.06), over(c.ink, c.panel, 0.1)
+  ]
+  const navMutedBgs = [c.nav, over(c.navInk, c.nav, 0.09)]
+  return {
+    accent: readableOn(c.accent, accentBgs, lighten),
+    warn: readableOn(c.warn, warnBgs, lighten),
+    ok: readableOn(c.ok, okBgs, lighten),
+    muted: readableOn(c.muted, mutedBgs, lighten),
+    navMuted: readableOn(c.navMuted, navMutedBgs, lighten)
+  }
+}
+
 export function loadSettings(): Settings {
   try {
     const s = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } as Settings
@@ -101,10 +199,12 @@ export function applySettings(s: Settings) {
   const isDark = mode === 'dark'
   const root = document.documentElement
   const accentFill = c.accentFill ?? c.accent
+  const inks = deriveInks(c)
   const vars: Record<string, string> = {
-    bg: c.bg, panel: c.panel, ink: c.ink, muted: c.muted, line: c.line, accent: c.accent,
-    'accent-fill': accentFill, warn: c.warn, ok: c.ok,
-    nav: c.nav, 'nav-ink': c.navInk, 'nav-muted': c.navMuted, 'on-accent': onAccent(accentFill),
+    bg: c.bg, panel: c.panel, ink: c.ink, muted: inks.muted, line: c.line, accent: c.accent,
+    'accent-fill': accentFill, 'accent-ink': inks.accent, 'warn-ink': inks.warn, 'ok-ink': inks.ok,
+    warn: c.warn, ok: c.ok,
+    nav: c.nav, 'nav-ink': c.navInk, 'nav-muted': inks.navMuted, 'on-accent': onAccent(accentFill),
     shadow: isDark ? '0 18px 48px rgb(0 0 0 / 0.4)' : '0 18px 48px rgb(15 23 42 / 0.14)',
     'shadow-lg': isDark ? '0 24px 64px rgb(0 0 0 / 0.52)' : '0 24px 64px rgb(15 23 42 / 0.2)',
     overlay: isDark ? 'rgb(0 0 0 / 0.55)' : 'rgb(15 23 42 / 0.3)'

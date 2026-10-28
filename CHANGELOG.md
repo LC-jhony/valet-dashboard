@@ -46,6 +46,11 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 - Los estados hover siguen una sola regla: fondos neutros para lo secundario, relleno más
   oscuro para el botón primario y ningún cambio sobre controles deshabilitados. Todos
   comparten la transición `--t` de 120 ms.
+- El texto de acento, aviso y verde se calcula por tema para llegar a AA sobre su propio
+  tinte: en claro el rojo pasa de 2,8:1 a 4,9:1 y el ámbar de aviso de 3,1:1 a 4,6:1. Los
+  grises secundarios del tema Min también suben al mínimo legible.
+- El tema Min oscuro usa un azul de relleno (`#0E639C`) en los controles primarios: su
+  azul claro no admitía texto blanco, así que el botón llevaba texto negro.
 - Los controles rellenos (botón **Nuevo proyecto** y segmentos activos) usan un rojo más
   profundo con texto blanco: el rojo de marca sobre fondo oscuro no admitía blanco con
   contraste AA, así que el acento queda para iconos, bordes y texto, y el relleno usa
