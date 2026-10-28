@@ -8,6 +8,12 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
 
 ### Añadido
 
+- Panel **Programas y actualizaciones** en la pestaña **Instalación**: compara lo instalado con
+  lo último disponible de PHP, nginx, dnsmasq, Composer, Valet y Node.js, y actualiza por fila.
+  Los paquetes del sistema y Composer avisan de que pedirán la contraseña; Valet se actualiza en
+  el Composer aislado y vuelve a aplicar el parche de DNS seguro. Lo que el panel no gestiona
+  —Valet instalado fuera del panel, Node bajo nvm, una distribución sin gestor compatible— lo
+  dice con el comando exacto en vez de ofrecer un botón que fallaría.
 - Asistente **Nuevo proyecto** con el instalador oficial de Laravel (`laravel new`):
   starter kit y autenticación, stack de frontend, pruebas, Boost, gestor de Node, Git y
   base de datos. Las preguntas cambian según las respuestas.
