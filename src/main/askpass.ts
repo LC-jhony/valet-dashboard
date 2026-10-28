@@ -10,8 +10,8 @@ export const ASKPASS = join(BIN, 'askpass')
 export const SUDO_WRAPPER = join(BIN, 'sudo')
 
 const ASKPASS_SCRIPT = `#!/bin/sh
-if command -v zenity >/dev/null 2>&1; then exec zenity --password --title="Valet Dashboard: contraseña de administrador"; fi
-if command -v kdialog >/dev/null 2>&1; then exec kdialog --password "Contraseña de administrador"; fi
+if command -v zenity >/dev/null 2>&1; then exec zenity --password --title="Valet Dashboard: administrator password"; fi
+if command -v kdialog >/dev/null 2>&1; then exec kdialog --password "Administrator password"; fi
 exit 1
 `
 

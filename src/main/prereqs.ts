@@ -149,22 +149,22 @@ export function evaluate(p: PrereqProbe): Prereq[] {
       ok: p.systemd,
       blocking: !p.systemd,
       detail: p.systemd
-        ? 'El sistema usa systemd para los servicios.'
-        : 'No se detecta systemd. El panel no puede gestionar nginx, PHP-FPM ni el DNS sin él.',
+        ? 'The system uses systemd for its services.'
+        : 'systemd was not detected. The panel cannot manage nginx, PHP-FPM or DNS without it.',
       commands: []
     },
     {
       id: 'elevation',
-      label: 'Elevación de permisos',
+      label: 'Privilege elevation',
       ok: elevationOk,
       blocking: !elevationOk,
       detail: hasPkexec
-        ? `polkit (pkexec) disponible.${p.graphical ? '' : ' No hay sesión gráfica: el diálogo no podrá mostrarse.'}`
+        ? `polkit (pkexec) available.${p.graphical ? '' : ' No graphical session: the dialog cannot be shown.'}`
         : hasSudo && hasAskpass
-          ? 'polkit no está; se usará sudo con el diálogo de zenity o kdialog.'
+          ? 'polkit is missing; sudo will be used with the zenity or kdialog prompt.'
           : hasSudo
-            ? 'Hay sudo, pero falta un diálogo de contraseña (zenity o kdialog).'
-            : 'No hay pkexec ni sudo: no se puede pedir la contraseña de administrador.',
+            ? 'sudo is present, but a password dialog (zenity or kdialog) is missing.'
+            : 'There is no pkexec or sudo: the administrator password cannot be requested.',
       commands: elevationCommands
     },
     {
@@ -173,50 +173,50 @@ export function evaluate(p: PrereqProbe): Prereq[] {
       ok: hasSudo,
       blocking: !hasSudo,
       detail: hasSudo
-        ? 'Valet eleva sus propios comandos con /usr/bin/sudo.'
-        : 'Valet necesita /usr/bin/sudo para configurar nginx y PHP-FPM.',
+        ? 'Valet elevates its own commands with /usr/bin/sudo.'
+        : 'Valet needs /usr/bin/sudo to configure nginx and PHP-FPM.',
       commands: hasSudo ? [] : fixCommands(p.pm, 'sudo')
     },
     {
       id: 'askpass',
-      label: 'Diálogo de contraseña',
+      label: 'Password prompt',
       ok: hasAskpass,
       blocking: !hasAskpass,
       detail: hasAskpass
-        ? `Se usará ${t.zenity ? 'zenity' : 'kdialog'} para pedir la contraseña.`
-        : 'Falta zenity o kdialog: sin ellos nadie puede escribir la contraseña de administrador.',
+        ? `${t.zenity ? 'zenity' : 'kdialog'} will be used to ask for the password.`
+        : 'zenity or kdialog is missing: without them nobody can type the administrator password.',
       commands: hasAskpass ? [] : fixCommands(p.pm, 'askpass')
     },
     {
       id: 'packages',
-      label: 'Paquetes del sistema',
+      label: 'System packages',
       ok: packagesOk,
       blocking: !packagesOk && !p.pm,
       detail: packagesOk
-        ? 'PHP, Composer, nginx y el resto de herramientas están instaladas.'
+        ? 'PHP, Composer, nginx and the rest of the tools are installed.'
         : p.pm
-          ? `Faltan: ${missing.join(', ')}. El instalador los añade con ${p.pm}.`
-          : `Faltan: ${missing.join(', ')} y no hay un gestor de paquetes compatible.`,
+          ? `Missing: ${missing.join(', ')}. The installer adds them with ${p.pm}.`
+          : `Missing: ${missing.join(', ')} and there is no compatible package manager.`,
       commands: packagesOk ? [] : fixCommands(p.pm, 'packages')
     },
     {
       id: 'network',
-      label: 'Red',
+      label: 'Network',
       ok: p.network !== false,
       blocking: false,
       detail: p.network === null
-        ? `No se pudo comprobar la resolución de ${mirrorHost(p.pm)}.`
+        ? `Could not check resolution of ${mirrorHost(p.pm)}.`
         : p.network
-          ? `Se resuelve ${mirrorHost(p.pm)}.`
-          : `No se resuelve ${mirrorHost(p.pm)}: sin red no hay descargas.`,
+          ? `${mirrorHost(p.pm)} resolves.`
+          : `${mirrorHost(p.pm)} does not resolve: no network means no downloads.`,
       commands: p.network === false ? fixCommands(p.pm, 'network') : []
     },
     {
       id: 'disk',
-      label: 'Espacio en disco',
+      label: 'Disk space',
       ok: p.diskFreeMb >= 2000,
       blocking: p.diskFreeMb < 500,
-      detail: `${Math.max(0, Math.round(p.diskFreeMb))} MB libres en tu carpeta personal.`,
+      detail: `${Math.max(0, Math.round(p.diskFreeMb))} MB free in your home folder.`,
       commands: p.diskFreeMb < 2000 ? fixCommands(p.pm, 'disk') : []
     }
   ]

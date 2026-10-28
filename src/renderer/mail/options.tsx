@@ -25,7 +25,7 @@ export function OptionField({ field, value, onChange }: {
       <label className="mp-field" htmlFor={id}>
         <span>{field.label}</span>
         <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Predeterminado</option>
+          <option value="">Default</option>
           {(field.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         {field.help && <small>{field.help}</small>}

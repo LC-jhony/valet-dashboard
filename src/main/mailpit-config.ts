@@ -43,11 +43,11 @@ export const TRUSTED_BIN_ROOTS = [
  * en una escritura o un borrado arbitrario.
  */
 const PATH_RULES: { key: string; root: string; label: string; url?: boolean }[] = [
-  { key: 'MP_DATABASE', root: MAILPIT_DATA_DIR, label: 'La base de datos', url: true },
-  { key: 'MP_LOG_FILE', root: MAILPIT_DATA_DIR, label: 'El archivo de registro' },
-  { key: 'MP_TAGS_CONFIG', root: AUX_DIR, label: 'El YAML de etiquetas' },
-  { key: 'MP_SMTP_RELAY_CONFIG', root: AUX_DIR, label: 'El YAML de relay' },
-  { key: 'MP_SMTP_FORWARD_CONFIG', root: AUX_DIR, label: 'El YAML de forward' }
+  { key: 'MP_DATABASE', root: MAILPIT_DATA_DIR, label: 'The database', url: true },
+  { key: 'MP_LOG_FILE', root: MAILPIT_DATA_DIR, label: 'The log file' },
+  { key: 'MP_TAGS_CONFIG', root: AUX_DIR, label: 'The tags YAML' },
+  { key: 'MP_SMTP_RELAY_CONFIG', root: AUX_DIR, label: 'The relay YAML' },
+  { key: 'MP_SMTP_FORWARD_CONFIG', root: AUX_DIR, label: 'The forward YAML' }
 ]
 
 export const expandHome = (p: string) =>
@@ -132,31 +132,31 @@ export async function loadConfig(): Promise<MailpitConfig> {
 
 /** Valida y normaliza lo que llega del renderer. Lanza un error legible si algo no cuadra. */
 export function validateConfig(input: MailpitConfig): MailpitConfig {
-  if (!input || typeof input !== 'object') throw new Error('Configuración no válida')
+  if (!input || typeof input !== 'object') throw new Error('Invalid configuration')
   const base = defaultConfig()
   const rawOptions = asRecord(input.options)
   const options: Record<string, string> = { ...base.options }
   for (const [k, v] of Object.entries(rawOptions)) {
-    if (!/^MP_[A-Z0-9_]+$/.test(k)) throw new Error(`Clave de opción no válida: ${k}`)
+    if (!/^MP_[A-Z0-9_]+$/.test(k)) throw new Error(`Invalid option key: ${k}`)
     if (MAILPIT_MANAGED_KEYS.has(k)) continue
     const value = typeof v === 'string' ? v.trim() : ''
-    if (/[\r\n\0]/.test(value)) throw new Error(`La opción ${k} no puede contener saltos de línea`)
+    if (/[\r\n\0]/.test(value)) throw new Error(`Option ${k} cannot contain line breaks`)
     options[k] = value
   }
   for (const f of MAILPIT_FIELDS) {
     const value = options[f.key] ?? ''
     if (!value) continue
     if (f.kind === 'number' && !/^\d+$/.test(value)) {
-      throw new Error(`${f.key} debe ser un número entero`)
+      throw new Error(`${f.key} must be an integer`)
     }
     if (f.kind === 'bool' && !['true', 'false'].includes(value)) {
-      throw new Error(`${f.key} debe ser true o false`)
+      throw new Error(`${f.key} must be true or false`)
     }
     if (f.kind === 'select' && f.options && !f.options.some((o) => o.value === value)) {
-      throw new Error(`${f.key} debe ser uno de: ${f.options.map((o) => o.value).join(', ')}`)
+      throw new Error(`${f.key} must be one of: ${f.options.map((o) => o.value).join(', ')}`)
     }
     if (f.kind === 'duration' && !/^\d+[hd]$/i.test(value)) {
-      throw new Error(`${f.key} debe usar horas (por ejemplo 36h) o días (por ejemplo 14d)`)
+      throw new Error(`${f.key} must use hours (for example 36h) or days (for example 14d)`)
     }
   }
 
@@ -164,22 +164,22 @@ export function validateConfig(input: MailpitConfig): MailpitConfig {
     const value = options[rule.key]?.trim()
     if (!value) continue
     if (rule.url && /^https?:\/\//i.test(value)) continue
-    if (!isWithinRoot(rule.root, value)) throw new Error(`${rule.label} debe estar dentro de ${rule.root}`)
+    if (!isWithinRoot(rule.root, value)) throw new Error(`${rule.label} must be inside ${rule.root}`)
   }
 
   const parse = (key: string, fallback: number) => {
     const value = options[key]
     if (!value) return fallback
     const p = parseAddress(value)
-    if (!p) throw new Error(`${key} debe tener el formato host:puerto (por ejemplo 127.0.0.1:${fallback})`)
-    if (RESERVED_PORTS[p.port]) throw new Error(`El puerto ${p.port} está reservado para ${RESERVED_PORTS[p.port]}`)
+    if (!p) throw new Error(`${key} must use host:port format (for example 127.0.0.1:${fallback})`)
+    if (RESERVED_PORTS[p.port]) throw new Error(`Port ${p.port} is reserved for ${RESERVED_PORTS[p.port]}`)
     return p.port
   }
   const ui = parse('MP_UI_BIND_ADDR', 8025)
   const smtp = parse('MP_SMTP_BIND_ADDR', 1025)
   const pop3 = parse('MP_POP3_BIND_ADDR', 1110)
   if (new Set([ui, smtp, pop3]).size !== 3) {
-    throw new Error('UI, SMTP y POP3 deben usar puertos distintos')
+    throw new Error('UI, SMTP and POP3 must use different ports')
   }
 
   const auth = {
@@ -190,27 +190,27 @@ export function validateConfig(input: MailpitConfig): MailpitConfig {
   }
   for (const [name, a] of Object.entries(auth)) {
     if (!a.enabled) { a.user = ''; a.password = ''; continue }
-    if (!a.user.trim()) throw new Error(`La autenticación ${name} necesita un usuario`)
-    if (!a.password) throw new Error(`La autenticación ${name} necesita una contraseña`)
-    if (/[\s:\r\n]/.test(a.user)) throw new Error(`El usuario de ${name} no puede tener espacios ni dos puntos`)
-    if (/[\r\n]/.test(a.password)) throw new Error(`La contraseña de ${name} no puede contener saltos de línea`)
+    if (!a.user.trim()) throw new Error(`The ${name} authentication needs a user`)
+    if (!a.password) throw new Error(`The ${name} authentication needs a password`)
+    if (/[\s:\r\n]/.test(a.user)) throw new Error(`The ${name} user cannot contain spaces or colons`)
+    if (/[\r\n]/.test(a.password)) throw new Error(`The ${name} password cannot contain line breaks`)
   }
 
   const tls = asTls(input.tls)
   if ((options.MP_SMTP_REQUIRE_STARTTLS === 'true' || options.MP_SMTP_REQUIRE_TLS === 'true') && !tls.enabled) {
-    throw new Error('Para exigir STARTTLS o TLS en SMTP, activa primero TLS en la pestaña TLS')
+    throw new Error('To require STARTTLS or TLS in SMTP, enable TLS in the TLS tab first')
   }
   if (tls.enabled && !tls.selfSigned) {
-    if (!tls.cert.trim() || !tls.key.trim()) throw new Error('Indica el certificado y la clave TLS, o activa el certificado autofirmado')
-    for (const p of [tls.cert, tls.key]) if (!existsSync(expandHome(p))) throw new Error(`No existe el archivo TLS: ${p}`)
+    if (!tls.cert.trim() || !tls.key.trim()) throw new Error('Provide the TLS certificate and key, or enable the self-signed certificate')
+    for (const p of [tls.cert, tls.key]) if (!existsSync(expandHome(p))) throw new Error(`The TLS file does not exist: ${p}`)
   }
 
   const systemBinary = expandHome(typeof input.systemBinary === 'string' ? input.systemBinary.trim() : '')
   if (input.binarySource === 'system' && systemBinary) {
     if (!isTrustedBinaryPath(TRUSTED_BIN_ROOTS, systemBinary)) {
-      throw new Error(`El Mailpit del sistema debe estar en una carpeta de confianza (${TRUSTED_BIN_ROOTS.join(', ')})`)
+      throw new Error(`The system Mailpit must be in a trusted folder (${TRUSTED_BIN_ROOTS.join(', ')})`)
     }
-    if (!existsSync(systemBinary)) throw new Error(`No existe el binario indicado: ${systemBinary}`)
+    if (!existsSync(systemBinary)) throw new Error(`The given binary does not exist: ${systemBinary}`)
   }
 
   return {
@@ -320,7 +320,7 @@ export async function materializeConfig(config: MailpitConfig): Promise<Record<s
 }
 
 export function renderEnv(options: Record<string, string>): string {
-  const lines = ['# Generado por Valet Dashboard. No edites a mano: usa la pestaña Correo.', '']
+  const lines = ['# Generated by Valet Dashboard. Do not edit by hand: use the Mail tab.', '']
   for (const key of Object.keys(options).sort()) {
     const raw = options[key]
     if (raw == null || raw === '') continue
@@ -365,7 +365,7 @@ export function sha256(data: Buffer | Uint8Array): string {
 const AUX: Record<MailpitAuxKind, { option: string; label: string; file: string }> = {
   relay: { option: 'MP_SMTP_RELAY_CONFIG', label: 'Relay SMTP', file: 'relay.yml' },
   forward: { option: 'MP_SMTP_FORWARD_CONFIG', label: 'Forward SMTP', file: 'forward.yml' },
-  tags: { option: 'MP_TAGS_CONFIG', label: 'Etiquetas', file: 'tags.yml' }
+  tags: { option: 'MP_TAGS_CONFIG', label: 'Tags', file: 'tags.yml' }
 }
 
 export async function readAuxiliary(config: MailpitConfig): Promise<MailpitAuxFile[]> {

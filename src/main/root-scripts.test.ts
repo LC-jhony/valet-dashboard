@@ -68,7 +68,7 @@ describe('scripts de root', () => {
       throw new Error('el script no debería ejecutarse sin root')
     } catch (e) {
       const err = e as { stderr?: string }
-      expect(String(err.stderr ?? '')).toMatch(/se requiere root/)
+      expect(String(err.stderr ?? '')).toMatch(/root is required/)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -122,7 +122,7 @@ describe('safe_dest', () => {
   it('rechaza un destino fuera del panel', async () => {
     const r = await scenario('/etc')
     expect(r.ok).toBe(false)
-    expect(r.stderr).toMatch(/fuera del panel/)
+    expect(r.stderr).toMatch(/outside the panel/)
   })
 
   it('rechaza un destino que sale por un enlace simbólico', async () => {
@@ -132,7 +132,7 @@ describe('safe_dest', () => {
       return join(home, '.valet-dashboard', 'backups', '2026-01-01', 'dns')
     })
     expect(r.ok).toBe(false)
-    expect(r.stderr).toMatch(/fuera del panel/)
+    expect(r.stderr).toMatch(/outside the panel/)
   })
 
   it('rechaza un destino que ya existe', async () => {
@@ -142,6 +142,6 @@ describe('safe_dest', () => {
       return dest
     })
     expect(r.ok).toBe(false)
-    expect(r.stderr).toMatch(/ya existe/)
+    expect(r.stderr).toMatch(/already exists/)
   })
 })

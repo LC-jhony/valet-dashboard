@@ -12,19 +12,19 @@ export type MailpitSettingsTab = 'service' | 'auth' | 'tls' | MailpitGroupId | '
 type Tab = MailpitSettingsTab
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'service', label: 'Servicio' },
+  { id: 'service', label: 'Service' },
   ...MAILPIT_GROUPS.map((g) => ({ id: g.id as Tab, label: g.label })),
-  { id: 'auth', label: 'Autenticación' },
+  { id: 'auth', label: 'Authentication' },
   { id: 'tls', label: 'TLS' },
   { id: 'yaml', label: 'YAML' },
-  { id: 'advanced', label: 'Avanzado' }
+  { id: 'advanced', label: 'Advanced' }
 ]
 
 const AUTH_ROWS = [
-  ['ui', 'Web UI y API', 'Protege el buzón y la API con Basic Auth.'],
-  ['smtp', 'SMTP', 'Exige usuario y contraseña a los clientes SMTP.'],
-  ['pop3', 'POP3', 'Protege el servidor POP3.'],
-  ['sendApi', 'Send API', 'Credenciales separadas solo para /api/v1/send.']
+  ['ui', 'Web UI and API', 'Protects the mailbox and the API with Basic Auth.'],
+  ['smtp', 'SMTP', 'Requires a username and password from SMTP clients.'],
+  ['pop3', 'POP3', 'Protects the POP3 server.'],
+  ['sendApi', 'Send API', 'Separate credentials for /api/v1/send only.']
 ] as const
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -35,9 +35,9 @@ function parseAdvanced(text: string): Record<string, string> {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) return
     const idx = trimmed.indexOf('=')
-    if (idx < 1) throw new Error(`Línea ${i + 1}: usa el formato MP_CLAVE=valor`)
+    if (idx < 1) throw new Error(`Line ${i + 1}: use the format MP_KEY=value`)
     const key = trimmed.slice(0, idx).trim()
-    if (!/^MP_[A-Z0-9_]+$/.test(key)) throw new Error(`Línea ${i + 1}: clave no válida «${key}»`)
+    if (!/^MP_[A-Z0-9_]+$/.test(key)) throw new Error(`Line ${i + 1}: invalid key “${key}”`)
     out[key] = trimmed.slice(idx + 1).trim()
   })
   return out
@@ -104,7 +104,7 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
     setNotice('')
     try {
       setAux(await window.api.mailpit.writeAuxiliary(kind, content))
-      setNotice('Archivo YAML guardado y Mailpit reiniciado.')
+      setNotice('YAML file saved and Mailpit restarted.')
       onChanged()
     } catch (e) {
       setError(errorMessage(e))
@@ -116,13 +116,13 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
   return (
     <Modal labelledBy="mp-title" onClose={onClose} busy={busy} className="mp-dialog">
       <header className="page-head">
-        <h1 id="mp-title">Configuración de Mailpit</h1>
-        <button className="btn ghost" onClick={onClose} disabled={busy} aria-label="Cerrar configuración">
-          <Glyph name="close" size={13} />Cerrar
+        <h1 id="mp-title">Mailpit settings</h1>
+        <button className="btn ghost" onClick={onClose} disabled={busy} aria-label="Close settings">
+          <Glyph name="close" size={13} />Close
         </button>
       </header>
 
-      <div className="mp-tabs" role="tablist" aria-label="Secciones de configuración">
+      <div className="mp-tabs" role="tablist" aria-label="Settings sections">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -143,34 +143,34 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
       <div className="mp-dialog-body">
         {tab === 'service' && (
           <section className="mp-section">
-            <h3>Ejecución</h3>
-            <p className="mp-hint">Mailpit se ejecuta como servicio de usuario systemd y sigue capturando correo al cerrar el panel.</p>
+            <h3>Runtime</h3>
+            <p className="mp-hint">Mailpit runs as a systemd user service and keeps capturing mail after the panel is closed.</p>
             <div className="mp-grid">
               <label className="mp-field">
-                <span>Binario</span>
+                <span>Binary</span>
                 <select
                   value={draft.binarySource}
                   onChange={(e) => setDraft((d) => ({ ...d, binarySource: e.target.value === 'system' ? 'system' : 'managed' }))}
                 >
-                  <option value="managed">Copia gestionada del panel</option>
-                  <option value="system">Mailpit del sistema</option>
+                  <option value="managed">Panel-managed copy</option>
+                  <option value="system">System Mailpit</option>
                 </select>
-                <small>{info.binary ? `En uso: ${info.binary}` : 'Todavía no hay ningún binario'}</small>
+                <small>{info.binary ? `In use: ${info.binary}` : 'No binary yet'}</small>
               </label>
               {draft.binarySource === 'system' && (
                 <label className="mp-field">
-                  <span>Ruta del Mailpit del sistema</span>
+                  <span>System Mailpit path</span>
                   <input
                     value={draft.systemBinary}
                     placeholder="/usr/local/bin/mailpit"
                     spellCheck={false}
                     onChange={(e) => setDraft((d) => ({ ...d, systemBinary: e.target.value }))}
                   />
-                  <small>{info.systemBinary ? `Detectado: ${info.systemBinary}` : 'No se encontró mailpit en PATH'}</small>
+                  <small>{info.systemBinary ? `Detected: ${info.systemBinary}` : 'mailpit was not found in PATH'}</small>
                 </label>
               )}
               <label className="mp-field">
-                <span>Token de GitHub (opcional)</span>
+                <span>GitHub token (optional)</span>
                 <input
                   type="password"
                   value={draft.githubToken}
@@ -178,7 +178,7 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
                   placeholder="ghp_…"
                   onChange={(e) => setDraft((d) => ({ ...d, githubToken: e.target.value }))}
                 />
-                <small>Evita el límite de peticiones al consultar releases.</small>
+                <small>Avoids the request limit when checking releases.</small>
               </label>
             </div>
             <label className="mp-toggle">
@@ -189,15 +189,15 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
               />
               <span className="mp-toggle-track" aria-hidden="true"><span /></span>
               <span className="mp-toggle-text">
-                <span>Iniciar al iniciar sesión</span>
-                <small>Activa la unidad con <code>systemctl --user enable</code>.</small>
+                <span>Start at login</span>
+                <small>Enables the unit with <code>systemctl --user enable</code>.</small>
               </span>
             </label>
             <div className="mp-paths">
-              <span>Unidad: <code>{info.unitPath}</code></span>
-              <span>Entorno: <code>{info.envPath}</code></span>
-              <span>Configuración: <code>{info.configPath}</code></span>
-              <span>Base de datos: <code>{info.database}</code></span>
+              <span>Unit: <code>{info.unitPath}</code></span>
+              <span>Environment: <code>{info.envPath}</code></span>
+              <span>Configuration: <code>{info.configPath}</code></span>
+              <span>Database: <code>{info.database}</code></span>
             </div>
           </section>
         )}
@@ -211,7 +211,7 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
               </div>
               {hasAdvanced(group) && (
                 <button className="btn ghost" onClick={() => setAdvanced((v) => !v)}>
-                  {advanced ? 'Ocultar opciones avanzadas' : 'Mostrar opciones avanzadas'}
+                  {advanced ? 'Hide advanced options' : 'Show advanced options'}
                 </button>
               )}
             </div>
@@ -230,10 +230,10 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
 
         {tab === 'auth' && (
           <section className="mp-section">
-            <h3>Autenticación</h3>
+            <h3>Authentication</h3>
             <p className="mp-hint">
-              Los archivos de contraseñas se generan en <code>~/.config/valet-dashboard/mailpit/auth</code> con permisos
-              <code> 0600</code>. Si <code>htpasswd</code> está disponible se usa bcrypt; si no, se guarda texto plano.
+              Password files are generated in <code>~/.config/valet-dashboard/mailpit/auth</code> with
+              <code> 0600</code> permissions. If <code>htpasswd</code> is available, bcrypt is used; otherwise plain text is stored.
             </p>
             <div className="mp-auth-grid">
               {AUTH_ROWS.map(([kind, label, hint]) => {
@@ -244,16 +244,16 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
                       <strong>{label}</strong>
                       <label className="mp-mini-toggle">
                         <input type="checkbox" checked={a.enabled} onChange={(e) => setAuth(kind, { enabled: e.target.checked })} />
-                        <span>{a.enabled ? 'activa' : 'desactivada'}</span>
+                        <span>{a.enabled ? 'enabled' : 'disabled'}</span>
                       </label>
                     </div>
                     <small>{hint}</small>
                     {a.enabled && (
                       <>
-                        <label className="mp-field"><span>Usuario</span>
+                        <label className="mp-field"><span>User</span>
                           <input value={a.user} spellCheck={false} autoComplete="off" onChange={(e) => setAuth(kind, { user: e.target.value })} />
                         </label>
-                        <label className="mp-field"><span>Contraseña</span>
+                        <label className="mp-field"><span>Password</span>
                           <input type="password" value={a.password} autoComplete="new-password" onChange={(e) => setAuth(kind, { password: e.target.value })} />
                         </label>
                       </>
@@ -268,26 +268,26 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
         {tab === 'tls' && (
           <section className="mp-section">
             <h3>TLS</h3>
-            <p className="mp-hint">El mismo certificado se aplica a la UI/API, SMTP y POP3. El certificado autofirmado se genera con <code>openssl</code> para localhost.</p>
+            <p className="mp-hint">The same certificate applies to the UI/API, SMTP and POP3. The self-signed certificate is generated with <code>openssl</code> for localhost.</p>
             <label className="mp-toggle">
               <input type="checkbox" checked={draft.tls.enabled} onChange={(e) => setTls({ enabled: e.target.checked })} />
               <span className="mp-toggle-track" aria-hidden="true"><span /></span>
-              <span className="mp-toggle-text"><span>Activar TLS</span><small>HTTPS en la UI y STARTTLS/TLS en correo.</small></span>
+              <span className="mp-toggle-text"><span>Enable TLS</span><small>HTTPS in the UI and STARTTLS/TLS for mail.</small></span>
             </label>
             {draft.tls.enabled && (
               <>
                 <label className="mp-toggle">
                   <input type="checkbox" checked={draft.tls.selfSigned} onChange={(e) => setTls({ selfSigned: e.target.checked })} />
                   <span className="mp-toggle-track" aria-hidden="true"><span /></span>
-                  <span className="mp-toggle-text"><span>Certificado autofirmado</span><small>El panel acepta este certificado solo para la vista embebida.</small></span>
+                  <span className="mp-toggle-text"><span>Self-signed certificate</span><small>The panel accepts this certificate only for the embedded view.</small></span>
                 </label>
                 {!draft.tls.selfSigned && (
                   <div className="mp-grid">
-                    <label className="mp-field"><span>Certificado</span>
-                      <input value={draft.tls.cert} placeholder="/ruta/cert.pem" spellCheck={false} onChange={(e) => setTls({ cert: e.target.value })} />
+                    <label className="mp-field"><span>Certificate</span>
+                      <input value={draft.tls.cert} placeholder="/path/cert.pem" spellCheck={false} onChange={(e) => setTls({ cert: e.target.value })} />
                     </label>
-                    <label className="mp-field"><span>Clave privada</span>
-                      <input value={draft.tls.key} placeholder="/ruta/key.pem" spellCheck={false} onChange={(e) => setTls({ key: e.target.value })} />
+                    <label className="mp-field"><span>Private key</span>
+                      <input value={draft.tls.key} placeholder="/path/key.pem" spellCheck={false} onChange={(e) => setTls({ key: e.target.value })} />
                     </label>
                   </div>
                 )}
@@ -298,10 +298,10 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
 
         {tab === 'advanced' && (
           <section className="mp-section">
-            <h3>Editor avanzado</h3>
+            <h3>Advanced editor</h3>
             <p className="mp-hint">
-              Una opción <code>MP_CLAVE=valor</code> por línea. Sirve para variables nuevas o no cubiertas por el formulario.
-              Las rutas de autenticación y TLS las gestiona el panel.
+              One <code>MP_KEY=value</code> option per line. Use it for new variables or ones the form does not cover.
+              The panel manages the authentication and TLS paths.
             </p>
             <textarea
               className="mp-textarea"
@@ -309,24 +309,24 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
               spellCheck={false}
               value={extra}
               onChange={(e) => setExtra(e.target.value)}
-              placeholder={'MP_ALGUNA_OPCION=valor\nMP_OTRA=1'}
+              placeholder={'MP_SOME_OPTION=value\nMP_OTHER=1'}
             />
-            <p className="mp-hint">{mailpitOptionEntries(draft.options).length} opciones personalizadas detectadas.</p>
+            <p className="mp-hint">{mailpitOptionEntries(draft.options).length} custom options detected.</p>
           </section>
         )}
 
         {tab === 'yaml' && (
           <section className="mp-section">
-            <h3>Archivos YAML</h3>
+            <h3>YAML files</h3>
             <p className="mp-hint">
-              Relay, forward y etiquetas usan archivos YAML. Al guardar contenido no vacío se activa la opción
-              correspondiente y Mailpit se reinicia; si el YAML no es válido, se revierte.
+              Relay, forward and tags use YAML files. Saving non-empty content enables the matching option
+              and restarts Mailpit; if the YAML is not valid, it is rolled back.
             </p>
             {aux.map((a) => (
               <div className="mp-aux" key={a.kind}>
                 <div className="mp-aux-head">
                   <strong>{a.label}</strong>
-                  <span className={`tag ${a.enabled ? 'on' : ''}`}>{a.enabled ? 'activo' : 'sin activar'}</span>
+                  <span className={`tag ${a.enabled ? 'on' : ''}`}>{a.enabled ? 'active' : 'not enabled'}</span>
                   <code>{a.path}</code>
                 </div>
                 <textarea
@@ -335,15 +335,15 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
                   spellCheck={false}
                   value={a.content}
                   placeholder={a.kind === 'tags'
-                    ? 'filters:\n  - match: from:.*@ejemplo.test\n    tags: Ejemplo, Pedidos'
-                    : 'host: smtp.ejemplo.test\nport: 587\nstarttls: true\nusername: usuario\npassword: secreto'}
+                    ? 'filters:\n  - match: from:.*@example.test\n    tags: Example, Orders'
+                    : 'host: smtp.example.test\nport: 587\nstarttls: true\nusername: user\npassword: secret'}
                   onChange={(e) => setAux((list) => list.map((x) => x.kind === a.kind ? { ...x, content: e.target.value } : x))}
                 />
                 <div className="mp-aux-actions">
                   <button className="btn tonal" disabled={busy} onClick={() => saveAux(a.kind, a.content)}>
-                    <Glyph name="check" size={12} />Guardar {a.label}
+                    <Glyph name="check" size={12} />Save {a.label}
                   </button>
-                  <span className="mp-hint">Vacía el contenido y guarda para desactivarlo.</span>
+                  <span className="mp-hint">Empty the content and save to disable it.</span>
                 </div>
               </div>
             ))}
@@ -352,10 +352,10 @@ export function MailpitSettingsDialog({ config, info, onClose, onChanged, initia
       </div>
 
       <footer>
-        <span className="mp-footer-note">Guardar valida el arranque y revierte si Mailpit no queda saludable.</span>
-        <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+        <span className="mp-footer-note">Saving validates startup and rolls back if Mailpit does not come up healthy.</span>
+        <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
         <button className="btn primary" onClick={save} disabled={busy}>
-          <Glyph name="check" size={13} />{busy ? 'Guardando…' : 'Guardar y reiniciar'}
+          <Glyph name="check" size={13} />{busy ? 'Saving…' : 'Save and restart'}
         </button>
       </footer>
     </Modal>

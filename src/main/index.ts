@@ -73,7 +73,7 @@ function trustedSender(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): 
 }
 
 function assertTrusted(e: Electron.IpcMainInvokeEvent): void {
-  if (!trustedSender(e)) throw new Error('Origen no autorizado')
+  if (!trustedSender(e)) throw new Error('Unauthorised origin')
 }
 
 for (const [ch, fn] of Object.entries(handlers)) {
@@ -88,7 +88,7 @@ ipcMain.handle('sites:pick-dir', async (e, current?: string) => {
   assertTrusted(e)
   const win = BrowserWindow.fromWebContents(e.sender)
   const options: OpenDialogOptions = {
-    title: 'Elegir carpeta para el proyecto',
+    title: 'Choose a folder for the project',
     defaultPath: typeof current === 'string' && current.trim() ? current : undefined,
     properties: ['openDirectory', 'createDirectory']
   }
@@ -224,7 +224,7 @@ async function resolveMailTarget(): Promise<string> {
       .then((c) => {
         const url = mp.uiUrl(c)
         const parsed = new URL(url)
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('URL de Mailpit no válida')
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('Invalid Mailpit URL')
         mailOrigin = parsed.origin
         mailTargetUrl = url
         return url

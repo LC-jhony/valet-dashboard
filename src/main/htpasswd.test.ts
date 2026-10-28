@@ -38,7 +38,7 @@ describe('hashPassword', () => {
     const { bin, base } = await fakeHtpasswd('echo "error: algo se rompió" >&2; exit 1')
     try {
       await expect(hashPassword('ana', 'secreto-123', { binary: bin }))
-        .rejects.toThrow(/No se pudo generar el hash/)
+        .rejects.toThrow(/Could not generate the password hash/)
     } finally {
       await rm(base, { recursive: true, force: true })
     }

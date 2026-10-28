@@ -28,22 +28,22 @@ export function SettingsDialog({ s, set, onClose }: { s: Settings; set: (p: Part
   return (
     <Modal labelledBy="st-title" onClose={onClose}>
       <header className="page-head">
-        <h1 id="st-title">Ajustes</h1>
-        <button className="btn ghost" onClick={onClose} aria-label="Cerrar ajustes">
-          <Glyph name="close" size={13} />Cerrar
+        <h1 id="st-title">Settings</h1>
+        <button className="btn ghost" onClick={onClose} aria-label="Close settings">
+          <Glyph name="close" size={13} />Close
         </button>
       </header>
 
-      <div className="field"><span>Tema</span>
-        <Seg<Mode> label="Tema" value={s.mode} onChange={(mode) => set({ mode })}
-          options={[['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Oscuro']]} /></div>
+      <div className="field"><span>Theme</span>
+        <Seg<Mode> label="Theme" value={s.mode} onChange={(mode) => set({ mode })}
+          options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} /></div>
 
-      <div className="field"><span>Paleta</span>
-        <Seg<PaletteId> label="Paleta" value={s.palette} onChange={(palette) => set({ palette })}
+      <div className="field"><span>Palette</span>
+        <Seg<PaletteId> label="Palette" value={s.palette} onChange={(palette) => set({ palette })}
           options={[['carbon', swatch('carbon')], ['min', swatch('min')]]} /></div>
 
-      <div className="field"><span>Iconos de archivos</span>
-        <Seg<IconThemeId> label="Iconos de archivos" value={s.iconTheme} onChange={(iconTheme) => set({ iconTheme })}
+      <div className="field"><span>File icons</span>
+        <Seg<IconThemeId> label="File icons" value={s.iconTheme} onChange={(iconTheme) => set({ iconTheme })}
           options={ICON_THEMES.map((t) => [
             t.id,
             <span className="icon-opt">
@@ -51,25 +51,25 @@ export function SettingsDialog({ s, set, onClose }: { s: Settings; set: (p: Part
               {t.name}
             </span>
           ] as [IconThemeId, ReactNode])} />
-        <small className="field-note">Se usan en la navegación, sitios, servicios y estados.</small>
+        <small className="field-note">Used in navigation, sites, services and states.</small>
       </div>
 
-      <div className="field"><span>Fuente</span>
-        <Seg<FontKey> label="Fuente" value={s.font} onChange={(font) => set({ font })}
-          options={[['system', 'Sistema'], ['mono', 'Monoespaciada'], ['serif', 'Serif'], ['custom', 'Otra']]} />
+      <div className="field"><span>Font</span>
+        <Seg<FontKey> label="Font" value={s.font} onChange={(font) => set({ font })}
+          options={[['system', 'System'], ['mono', 'Monospace'], ['serif', 'Serif'], ['custom', 'Other']]} />
         {s.font === 'custom' && (
-          <input placeholder="Nombre de una fuente instalada, p. ej. Fira Sans" value={s.customFont}
+          <input placeholder="Name of an installed font, e.g. Fira Sans" value={s.customFont}
             onChange={(e) => set({ customFont: e.target.value })} />
         )}
       </div>
 
-      <div className="field"><span>Tamaño de texto: {s.fontSize}px</span>
-        <input type="range" min={12} max={20} value={s.fontSize} aria-label="Tamaño de texto" onChange={(e) => set({ fontSize: Number(e.target.value) })} />
+      <div className="field"><span>Text size: {s.fontSize}px</span>
+        <input type="range" min={12} max={20} value={s.fontSize} aria-label="Text size" onChange={(e) => set({ fontSize: Number(e.target.value) })} />
       </div>
 
-      <label className="check"><input type="checkbox" checked={s.compact} onChange={(e) => set({ compact: e.target.checked })} />Vista compacta</label>
+      <label className="check"><input type="checkbox" checked={s.compact} onChange={(e) => set({ compact: e.target.checked })} />Compact view</label>
 
-      <footer><button className="btn" onClick={() => set(DEFAULTS)}>Restablecer</button></footer>
+      <footer><button className="btn" onClick={() => set(DEFAULTS)}>Reset</button></footer>
     </Modal>
   )
 }

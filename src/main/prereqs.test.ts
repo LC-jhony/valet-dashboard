@@ -32,7 +32,7 @@ describe('requisitos previos', () => {
   it('acepta sudo con zenity cuando no hay polkit', () => {
     const list = evaluate(probe({ tools: { ...OK_TOOLS, pkexec: false } }))
     expect(byId(list, 'elevation').ok).toBe(true)
-    expect(byId(list, 'elevation').detail).toContain('sudo con el diálogo')
+    expect(byId(list, 'elevation').detail).toContain('sudo will be used with')
     expect(hasBlocking(list)).toBe(false)
   })
 

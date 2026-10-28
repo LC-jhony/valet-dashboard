@@ -35,7 +35,7 @@ export async function hashPassword(user: string, password: string, opts: HashOpt
   const line = out.split('\n').map((l) => l.trim()).find((l) => l.startsWith(`${user}:`))
   if (!line) {
     throw new Error(
-      `No se pudo generar el hash de la contraseña con ${bin}. Reinstala apache2-utils (paquete que provee htpasswd) e inténtalo de nuevo.`
+      `Could not generate the password hash with ${bin}. Reinstall apache2-utils (the package that provides htpasswd) and try again.`
     )
   }
   return line

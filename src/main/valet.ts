@@ -32,16 +32,16 @@ interface Changed { file: string; backup: string; root: boolean }
 /** Los nombres llegan como argumento de execFile (sin shell): solo evitamos opciones y rutas. */
 const assertName = (n: string) => {
   if (typeof n !== 'string' || !n || n.trim() !== n || n === '.' || n === '..' ||
-    n.startsWith('-') || /[/\\\0-\x1f\x7f]/.test(n)) throw new Error('Nombre no válido')
+    n.startsWith('-') || /[/\\\0-\x1f\x7f]/.test(n)) throw new Error('Invalid name')
 }
 const assertPort = (p: number) => {
-  if (!Number.isInteger(p) || p < 1 || p > 65535) throw new Error(`Puerto no válido: ${p}`)
+  if (!Number.isInteger(p) || p < 1 || p > 65535) throw new Error(`Invalid port: ${p}`)
 }
-const RESERVED_PORTS: Record<number, string> = { 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5353: 'mDNS', 5354: 'DNS seguro' }
+const RESERVED_PORTS: Record<number, string> = { 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5353: 'mDNS', 5354: 'safe DNS' }
 /** Evita romper DNS/DHCP/NTP/mDNS al mover los puertos web. */
 const assertWebPort = (p: number) => {
   assertPort(p)
-  if (RESERVED_PORTS[p]) throw new Error(`El puerto ${p} está reservado para ${RESERVED_PORTS[p]}. Elige otro para no afectar a la red.`)
+  if (RESERVED_PORTS[p]) throw new Error(`Port ${p} is reserved for ${RESERVED_PORTS[p]}. Choose another so you do not affect the network.`)
 }
 
 const DEFAULT_WEB_PORTS = { http: 80, https: 443 }
@@ -120,7 +120,7 @@ export async function siteUrl(name: string): Promise<string> {
   const secure = existsSync(join(VALET, 'Certificates', `${name}.${tld}.crt`))
   const { http, https } = await detectNginxPorts(await nginxFiles())
   const url = siteUrlFor(name, tld, secure, secure ? https : http)
-  if (!url) throw new Error('El nombre del sitio no es válido para abrirlo en el navegador')
+  if (!url) throw new Error('The site name cannot be opened in the browser')
   return url
 }
 
@@ -137,21 +137,21 @@ async function isInLinksDir(dir: string): Promise<boolean> {
 
 function assertProjectName(name: string) {
   if (!PROJECT_NAME_RE.test(name)) {
-    throw new Error('Nombre de proyecto no válido: usa minúsculas, números y guiones, sin empezar ni terminar en guion (máx. 63).')
+    throw new Error('Invalid project name: use lowercase letters, numbers and hyphens, without starting or ending with a hyphen (max. 63).')
   }
 }
 
 async function projectParentDir(input: unknown): Promise<string> {
-  if (typeof input !== 'string' || !input.trim()) throw new Error('Elige una carpeta para el proyecto.')
+  if (typeof input !== 'string' || !input.trim()) throw new Error('Choose a folder for the project.')
   const expanded = expandHome(input.trim())
-  if (!isAbsolute(expanded)) throw new Error('La carpeta debe ser una ruta absoluta o empezar por ~/.')
+  if (!isAbsolute(expanded)) throw new Error('The folder must be an absolute path or start with ~/.')
   let parent: string
-  try { parent = await realpath(expanded) } catch { throw new Error('La carpeta de destino no existe.') }
-  if (!(await stat(parent)).isDirectory()) throw new Error('La ruta de destino no es una carpeta.')
+  try { parent = await realpath(expanded) } catch { throw new Error('The destination folder does not exist.') }
+  if (!(await stat(parent)).isDirectory()) throw new Error('The destination path is not a folder.')
   if (await isInLinksDir(parent)) {
-    throw new Error('La carpeta ~/.valet/Sites está reservada para los enlaces de Valet. Elige otra carpeta de proyectos.')
+    throw new Error('The ~/.valet/Sites folder is reserved for Valet links. Choose another projects folder.')
   }
-  try { await access(parent, fsConstants.W_OK) } catch { throw new Error('La carpeta de destino no tiene permisos de escritura.') }
+  try { await access(parent, fsConstants.W_OK) } catch { throw new Error('The destination folder is not writable.') }
   return parent
 }
 
@@ -228,47 +228,47 @@ export async function cancelCreateProject(): Promise<void> {
  * arbitraria del renderer, un enlace de Valet ni un sitio ya registrado.
  */
 export async function deleteIncompleteProject(path: unknown): Promise<void> {
-  if (typeof path !== 'string' || !path.trim()) throw new Error('Ruta no válida.')
+  if (typeof path !== 'string' || !path.trim()) throw new Error('Invalid path.')
   const target = resolve(expandHome(path.trim()))
   if (!incompleteTarget || target !== incompleteTarget) {
-    throw new Error('Solo se puede eliminar la carpeta incompleta de la última creación fallida.')
+    throw new Error('Only the incomplete folder from the last failed creation can be deleted.')
   }
   if (await isInLinksDir(target)) {
-    throw new Error('La carpeta está dentro de los enlaces de Valet; no se elimina desde aquí.')
+    throw new Error('The folder is inside the Valet links; it is not deleted from here.')
   }
-  if (!PROJECT_NAME_RE.test(basename(target))) throw new Error('La ruta no parece una carpeta de proyecto.')
+  if (!PROJECT_NAME_RE.test(basename(target))) throw new Error('The path does not look like a project folder.')
   const sites = await listSites()
   if (sites.some((s) => resolve(s.path) === target)) {
-    throw new Error('La carpeta ya es un sitio de Valet. Elimínala desde la lista de sitios.')
+    throw new Error('The folder is already a Valet site. Delete it from the site list.')
   }
   if (!existsSync(target)) {
     incompleteTarget = null
     return
   }
-  if (!(await stat(target)).isDirectory()) throw new Error('La ruta no es una carpeta.')
+  if (!(await stat(target)).isDirectory()) throw new Error('The path is not a folder.')
   await rm(target, { recursive: true, force: true })
   incompleteTarget = null
 }
 
 export async function createLaravelProject(opts: CreateProjectOptions, emit: (e: CreateProjectEvent) => void): Promise<Site> {
-  if (creatingProject) throw new Error('Ya hay una creación de proyecto en curso.')
+  if (creatingProject) throw new Error('A project creation is already running.')
   creatingProject = true
   incompleteTarget = null
   let target = ''
   let mayHaveCreated = false
   try {
     const answers = opts?.answers
-    if (!answers || typeof answers !== 'object') throw new Error('Faltan las respuestas del asistente.')
+    if (!answers || typeof answers !== 'object') throw new Error('The wizard answers are missing.')
     const name = typeof answers.name === 'string' ? answers.name.trim() : ''
     assertProjectName(name)
 
     const parent = await projectParentDir(opts?.parentDir)
     target = join(parent, name)
-    if (existsSync(target)) throw new Error(`Ya existe ${target}. Elige otro nombre o carpeta.`)
-    if ((await listSites()).some((s) => s.name === name)) throw new Error(`Ya existe un sitio llamado ${name}.`)
+    if (existsSync(target)) throw new Error(`${target} already exists. Choose another name or folder.`)
+    if ((await listSites()).some((s) => s.name === name)) throw new Error(`A site named ${name} already exists.`)
 
     const valet = await run('valet', ['--version'], true)
-    if (!valet.trim()) throw new Error('Valet no está instalado. Instálalo desde la pestaña Instalación.')
+    if (!valet.trim()) throw new Error('Valet is not installed. Install it from the Installation tab.')
 
     // Si no hay instalador, ensureLaravel lo instala en el Composer aislado.
     const installer = await ensureLaravel(emit)
@@ -277,42 +277,42 @@ export async function createLaravelProject(opts: CreateProjectOptions, emit: (e:
     const database = opts.database ?? null
     const errors = validateAnswers(normalized, capabilities)
     if (normalized.database !== 'sqlite') {
-      if (!database) errors.push('Faltan las credenciales de la base de datos.')
+      if (!database) errors.push('The database credentials are missing.')
       else errors.push(...validateDatabase(database))
     }
     if (errors.length) throw new Error(errors.join(' '))
 
-    emit({ type: 'stage', label: 'Creando el proyecto con el instalador de Laravel…' })
+    emit({ type: 'stage', label: 'Creating the project with the Laravel installer…' })
     mayHaveCreated = true
     await runLaravelNew(installer, parent, normalized, database, emit)
 
-    emit({ type: 'stage', label: 'Guardando la configuración de la base de datos…' })
+    emit({ type: 'stage', label: 'Saving the database configuration…' })
     try {
       await patchProjectEnv(target, normalized.database, database, null)
     } catch {
-      emit({ type: 'log', text: '\nNo se pudo escribir la configuración de la base de datos en .env; revísala antes de usar el proyecto.\n' })
+      emit({ type: 'log', text: '\nCould not write the database configuration to .env; check it before using the project.\n' })
     }
 
-    emit({ type: 'stage', label: 'Registrando el sitio en Valet…' })
+    emit({ type: 'stage', label: 'Registering the site in Valet…' })
     if (!(await isParkedDir(parent))) {
       await prepareHelpers()
       try {
         await runValet(['link', name], false, target)
       } catch (e) {
-        throw new Error(`El proyecto se creó en ${target}, pero no se pudo enlazar en Valet: ${(e as Error).message}`)
+        throw new Error(`The project was created at ${target}, but it could not be linked in Valet: ${(e as Error).message}`)
       }
     }
 
-    emit({ type: 'stage', label: 'Actualizando la lista de sitios…' })
+    emit({ type: 'stage', label: 'Refreshing the site list…' })
     const site = (await listSites()).find((s) => s.name === name)
-    if (!site) throw new Error(`El proyecto se creó en ${target}, pero no aparece en la lista de Valet.`)
+    if (!site) throw new Error(`The project was created at ${target}, but it does not appear in the Valet list.`)
 
     // El instalador deja APP_URL con el dominio por defecto y sin el puerto real.
     try {
       await patchProjectEnv(target, normalized.database, database, site.url ? site.url.replace(/\/$/, '') : null)
-    } catch { emit({ type: 'log', text: '\nNo se pudo actualizar APP_URL en .env; el resto del proyecto está listo.\n' }) }
+    } catch { emit({ type: 'log', text: '\nCould not update APP_URL in .env; the rest of the project is ready.\n' }) }
 
-    emit({ type: 'stage', label: 'Proyecto creado' })
+    emit({ type: 'stage', label: 'Project created' })
     return site
   } catch (e) {
     // Solo se ofrece borrar una carpeta que este intento pudo crear: nunca una
@@ -342,7 +342,7 @@ export async function phpInfo(): Promise<PhpInfo> {
 }
 
 export async function usePhp(version: string) {
-  if (!/^\d+\.\d+$/.test(version)) throw new Error('Versión no válida')
+  if (!/^\d+\.\d+$/.test(version)) throw new Error('Invalid version')
   await prepareHelpers()
   await runValet(['use', `php@${version}`])
 }
@@ -423,8 +423,8 @@ async function assertPortsFree(ports: number[], owner: RegExp) {
   for (const port of ports) {
     const used = usage.find((u) => u.port === port)
     if (used && !owner.test(used.process)) {
-      const who = used.process === '—' ? 'otro proceso' : used.process
-      throw new Error(`El puerto ${port} ya está ocupado por ${who}${used.pid ? ` (pid ${used.pid})` : ''}. Elige otro puerto.`)
+      const who = used.process === '—' ? 'another process' : used.process
+      throw new Error(`Port ${port} is already in use by ${who}${used.pid ? ` (pid ${used.pid})` : ''}. Choose another port.`)
     }
   }
 }
@@ -450,7 +450,7 @@ async function restoreFiles(changed: Changed[]): Promise<string[]> {
 }
 
 const restoreNote = (failed: string[]) =>
-  failed.length ? `\nNo se pudieron restaurar: ${failed.join(', ')}` : ''
+  failed.length ? `\nCould not restore: ${failed.join(', ')}` : ''
 
 async function writePrivileged(file: string, content: string) {
   const tmp = join(tmpdir(), `valet-dash-${process.pid}-${Date.now()}-${basename(file)}`)
@@ -492,13 +492,13 @@ export async function valetHttpPort(): Promise<number> {
 
 export async function setPorts(http: number, https: number) {
   assertWebPort(http); assertWebPort(https)
-  if (http === https) throw new Error('HTTP y HTTPS no pueden ser el mismo puerto')
+  if (http === https) throw new Error('HTTP and HTTPS cannot use the same port')
   const files = await nginxFiles()
-  if (!files.length) throw new Error('No se encontró la configuración de nginx de Valet. Instala Valet primero.')
+  if (!files.length) throw new Error('The Valet nginx configuration was not found. Install Valet first.')
   const current = await detectNginxPorts(files)
   if (http === current.http && https === current.https) return
   if (current.http === current.https)
-    throw new Error(`La configuración actual de nginx usa el mismo puerto (${current.http}) para HTTP y HTTPS. Corrígela antes de cambiarla desde aquí.`)
+    throw new Error(`The current nginx configuration uses the same port (${current.http}) for HTTP and HTTPS. Fix it before changing it from here.`)
   await assertPortsFree([http, https], /^nginx$/i)
   const map: Record<number, number> = { [current.http]: http, [current.https]: https }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -511,10 +511,10 @@ export async function setPorts(http: number, https: number) {
   } catch (e) {
     const failed = await restoreFiles(changed)
     const msg = (e as Error).message.trim()
-    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
-    throw new Error(`No se pudieron escribir los cambios de nginx; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'the previous one could not be fully restored' : 'the previous one was restored'
+    throw new Error(`Could not write the nginx changes; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
-  if (!changed.length) throw new Error('No se encontraron directivas listen que actualizar. Revisa la configuración de Valet.')
+  if (!changed.length) throw new Error('No listen directives were found to update. Check the Valet configuration.')
   const wasActive = await isActive('nginx')
   try {
     await sudo('nginx', ['-t'])
@@ -524,8 +524,8 @@ export async function setPorts(http: number, https: number) {
     const failed = await restoreFiles(changed)
     if (wasActive) await sudo('systemctl', ['reload', 'nginx']).catch(() => '')
     const msg = (e as Error).message.trim()
-    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
-    throw new Error(`nginx rechazó la configuración; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'the previous one could not be fully restored' : 'the previous one was restored'
+    throw new Error(`nginx rejected the configuration; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   await saveConfig({ http, https })
 }
@@ -594,19 +594,19 @@ const apacheTransform = (map: Record<number, number>) => (src: string) => {
 
 export async function setApachePorts(http: number, https: number) {
   assertWebPort(http); assertWebPort(https)
-  if (http === https) throw new Error('HTTP y HTTPS no pueden ser el mismo puerto')
-  if (!existsSync(APACHE_PORTS)) throw new Error('Apache no está instalado en este sistema')
+  if (http === https) throw new Error('HTTP and HTTPS cannot use the same port')
+  if (!existsSync(APACHE_PORTS)) throw new Error('Apache is not installed on this system')
   const activeFiles = await apacheFiles()
   const allFiles = await apacheFiles(true)
-  if (!allFiles.length) throw new Error('No se encontró la configuración de Apache')
+  if (!allFiles.length) throw new Error('The Apache configuration was not found')
   const parsed = await parseApachePorts(activeFiles)
   const saved = (await appConfig()).apache
   const current = { http: parsed.http ?? saved?.http ?? null, https: parsed.https ?? saved?.https ?? null }
   if (current.http == null || current.https == null)
-    throw new Error('No se pudieron detectar los puertos actuales de Apache (revisa ports.conf y los VirtualHost)')
+    throw new Error('Could not detect the current Apache ports (check ports.conf and the VirtualHosts)')
   if (http === current.http && https === current.https) return
   if (current.http === current.https)
-    throw new Error(`La configuración actual de Apache usa el mismo puerto (${current.http}) para HTTP y HTTPS. Corrígela antes de cambiarla desde aquí.`)
+    throw new Error(`The current Apache configuration uses the same port (${current.http}) for HTTP and HTTPS. Fix it before changing it from here.`)
   await assertPortsFree([http, https], /^(apache2?|httpd)$/i)
   const map: Record<number, number> = { [current.http]: http, [current.https]: https }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -619,10 +619,10 @@ export async function setApachePorts(http: number, https: number) {
   } catch (e) {
     const failed = await restoreFiles(changed)
     const msg = (e as Error).message.trim()
-    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
-    throw new Error(`No se pudieron escribir los cambios de Apache; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'the previous one could not be fully restored' : 'the previous one was restored'
+    throw new Error(`Could not write the Apache changes; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
-  if (!changed.length) throw new Error('No se encontraron directivas Listen ni VirtualHost que actualizar en Apache.')
+  if (!changed.length) throw new Error('No Listen directives or VirtualHosts were found to update in Apache.')
   const wasActive = await isActive('apache2')
   try {
     await sudo('apache2ctl', ['configtest'])
@@ -631,8 +631,8 @@ export async function setApachePorts(http: number, https: number) {
     const failed = await restoreFiles(changed)
     if (wasActive) await sudo('systemctl', ['reload', 'apache2']).catch(() => '')
     const msg = (e as Error).message.trim()
-    const state = failed.length ? 'no se pudo restaurar por completo' : 'se restauró la anterior'
-    throw new Error(`Apache rechazó la configuración; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
+    const state = failed.length ? 'the previous one could not be fully restored' : 'the previous one was restored'
+    throw new Error(`Apache rejected the configuration; ${state}.${restoreNote(failed)}${msg ? `\n${msg}` : ''}`)
   }
   await saveConfig({ apache: { http, https } })
 }
@@ -652,7 +652,7 @@ export async function listServices(): Promise<Service[]> {
 }
 
 export async function serviceAction(name: string, action: ServiceAction) {
-  if (!['start', 'stop', 'restart'].includes(action)) throw new Error('Acción no válida')
-  if (!(await listServices()).some((s) => s.name === name)) throw new Error('Servicio desconocido')
+  if (!['start', 'stop', 'restart'].includes(action)) throw new Error('Invalid action')
+  if (!(await listServices()).some((s) => s.name === name)) throw new Error('Unknown service')
   await sudo('systemctl', [action, name])
 }

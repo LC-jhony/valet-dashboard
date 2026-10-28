@@ -27,15 +27,15 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { id: 'sites', label: 'Sitios', icon: 'sites', hint: 'Carpetas servidas por Valet. Activa HTTPS por sitio sin salir del panel.' },
-  { id: 'php', label: 'PHP', icon: 'php', hint: 'Versiones de php-fpm instaladas. Cambia la versión en uso con un clic.' },
-  { id: 'ports', label: 'Puertos', icon: 'ports', hint: 'Puertos de Valet (nginx) y Apache, con validación y reversión automática.' },
-  { id: 'services', label: 'Servicios', icon: 'services', hint: 'nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis y PostgreSQL vía systemctl.' },
-  { id: 'install', label: 'Instalación', icon: 'install', hint: 'Instala Valet con Composer aislado, repara la red y elige cómo se resuelven tus sitios de desarrollo.' },
-  { id: 'mail', label: 'Correo', icon: 'mail', hint: 'Mailpit captura el correo de desarrollo: interfaz web completa, SMTP, POP3, API y Relay.' }
+  { id: 'sites', label: 'Sites', icon: 'sites', hint: 'Folders served by Valet. Turn HTTPS on per site without leaving the panel.' },
+  { id: 'php', label: 'PHP', icon: 'php', hint: 'Installed php-fpm versions. Switch the version in use with one click.' },
+  { id: 'ports', label: 'Ports', icon: 'ports', hint: 'Valet (nginx) and Apache ports, with validation and automatic rollback.' },
+  { id: 'services', label: 'Services', icon: 'services', hint: 'nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis and PostgreSQL via systemctl.' },
+  { id: 'install', label: 'Installation', icon: 'install', hint: 'Install Valet with an isolated Composer, repair the network and choose how your development sites resolve.' },
+  { id: 'mail', label: 'Mail', icon: 'mail', hint: 'Mailpit captures development mail: full web UI, SMTP, POP3, API and Relay.' }
 ]
 
-const KNOWN: Record<number, string> = { 53: 'DNS (dnsmasq)', 80: 'HTTP', 443: 'HTTPS', 3306: 'MySQL', 5354: 'DNS seguro (Valet Dashboard)', 6379: 'Redis' }
+const KNOWN: Record<number, string> = { 53: 'DNS (dnsmasq)', 80: 'HTTP', 443: 'HTTPS', 3306: 'MySQL', 5354: 'Safe DNS (Valet Dashboard)', 6379: 'Redis' }
 const RESERVED_PORTS = new Set([53, 67, 68, 123, 5353, 5354])
 const WIDTH_KEY = 'valet-dashboard:sidebar-width'
 const SIDEBAR_MIN = 220
@@ -76,7 +76,7 @@ const TOOLS: Record<string, { label: string; icon: IconName }> = {
   pkexec: { label: 'pkexec', icon: 'folder_config_open' }
 }
 
-const STATUS: Record<string, string> = { wait: 'pendiente', run: 'en curso', ok: 'listo', skip: 'omitido', fail: 'falló' }
+const STATUS: Record<string, string> = { wait: 'pending', run: 'running', ok: 'done', skip: 'skipped', fail: 'failed' }
 
 function portConflicts(info: PortsInfo) {
   const mine = new Set([info.config.http, info.config.https])
@@ -149,9 +149,9 @@ function Page({ title, hint, error, loading, onRefresh, actions, children }: {
         </div>
         <div className="page-actions">
           {actions}
-          <button className="btn" onClick={onRefresh} disabled={loading} aria-label={loading ? 'Actualizando' : 'Actualizar'} title="Actualizar">
+          <button className="btn" onClick={onRefresh} disabled={loading} aria-label={loading ? 'Refreshing' : 'Refresh'} title="Refresh">
             <Glyph name="refresh" size={14} className={loading ? 'spin' : ''} />
-            <span className="btn-label">{loading ? 'Actualizando…' : 'Actualizar'}</span>
+            <span className="btn-label">{loading ? 'Refreshing…' : 'Refresh'}</span>
           </button>
         </div>
       </header>
@@ -215,23 +215,23 @@ function Sidebar({ title, badge, onRefresh, loading, onHide, open, onResizeStart
   children: ReactNode
 }) {
   return (
-    <aside className="sidebar" aria-label={`Panel de ${title}`} inert={!open}>
+    <aside className="sidebar" aria-label={`Panel for ${title}`} inert={!open}>
       <div className="side-head">
         <div className="side-title">
           <span>{title}</span>
           {badge && <span className="side-badge">{badge}</span>}
         </div>
         <div className="side-tools">
-          <button className="icon-btn" onClick={onRefresh} disabled={loading} title="Actualizar" aria-label="Actualizar">
+          <button className="icon-btn" onClick={onRefresh} disabled={loading} title="Refresh" aria-label="Refresh">
             <Glyph name="refresh" size={15} className={loading ? 'spin' : ''} />
           </button>
-          <button className="icon-btn" onClick={onHide} title="Ocultar panel (Ctrl+B)" aria-label="Ocultar panel">
+          <button className="icon-btn" onClick={onHide} title="Hide panel (Ctrl+B)" aria-label="Hide panel">
             <Glyph name="panel" size={15} />
           </button>
         </div>
       </div>
       <div className="side-scroll">{children}</div>
-      <div className="side-resize" onPointerDown={onResizeStart} role="separator" aria-orientation="vertical" aria-label="Redimensionar panel" />
+      <div className="side-resize" onPointerDown={onResizeStart} role="separator" aria-orientation="vertical" aria-label="Resize panel" />
     </aside>
   )
 }
@@ -252,9 +252,9 @@ function SitesSidebar({ r, query, setQuery, selected, onSelect }: {
       <div className="side-search">
         <div className="search-box">
           <Glyph name="search" size={14} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar sitios" aria-label="Buscar sitios" spellCheck={false} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sites" aria-label="Search sites" spellCheck={false} />
           {query && (
-            <button className="side-clear" onClick={() => setQuery('')} aria-label="Limpiar búsqueda">
+            <button className="side-clear" onClick={() => setQuery('')} aria-label="Clear search">
               <Glyph name="close" size={12} />
             </button>
           )}
@@ -263,7 +263,7 @@ function SitesSidebar({ r, query, setQuery, selected, onSelect }: {
       {r.error && <SideAlert>{r.error}</SideAlert>}
       {r.loading && !r.data && <SideSkeleton rows={6} />}
       {r.data && list.length === 0 && (
-        <SideEmpty>{query ? 'Sin coincidencias para la búsqueda.' : 'No hay sitios todavía. Usa valet park o valet link.'}</SideEmpty>
+        <SideEmpty>{query ? 'No matches for your search.' : 'No sites yet. Use valet park or valet link.'}</SideEmpty>
       )}
       <ul className="side-list">
         {list.map((s) => (
@@ -281,11 +281,11 @@ function SitesSidebar({ r, query, setQuery, selected, onSelect }: {
       </ul>
       {all.length > 0 && (
         <div className="side-summary">
-          <span>{query ? `${list.length} de ${all.length}` : `${all.length} sitios`}</span>
-          <span>{secure} con HTTPS</span>
+          <span>{query ? `${list.length} of ${all.length}` : `${all.length} sites`}</span>
+          <span>{secure} with HTTPS</span>
         </div>
       )}
-      <p className="side-note">Haz clic en un sitio para localizarlo en el área principal.</p>
+      <p className="side-note">Click a site to locate it in the main area.</p>
     </>
   )
 }
@@ -304,13 +304,13 @@ function PhpSidebar({ r, selected, onSelect }: {
           <div className="side-current">
             <span className="side-current-icon"><Icon name="php" size={20} /></span>
             <div>
-              <span className="side-label">En uso</span>
+              <span className="side-label">In use</span>
               <strong>PHP {r.data.current}</strong>
               <span className="side-current-sub">php-fpm</span>
             </div>
             <span className="status-dot ok" />
           </div>
-          <div className="side-group-label">Versiones instaladas</div>
+          <div className="side-group-label">Installed versions</div>
           <ul className="side-list">
             {r.data.versions.map((v) => (
               <li key={v}>
@@ -320,15 +320,15 @@ function PhpSidebar({ r, selected, onSelect }: {
                     <span className="side-item-name">PHP {v}</span>
                     <span className="side-item-sub">php-fpm</span>
                   </span>
-                  {r.data?.current === v && <span className="side-item-tag">en uso</span>}
+                  {r.data?.current === v && <span className="side-item-tag">in use</span>}
                 </button>
               </li>
             ))}
           </ul>
-          {r.data.versions.length === 0 && <SideEmpty>No se encontró ningún php-fpm instalado.</SideEmpty>}
+          {r.data.versions.length === 0 && <SideEmpty>No php-fpm installation found.</SideEmpty>}
         </>
       )}
-      <p className="side-note">Cambiar la versión reinicia php-fpm. La configuración de nginx no cambia.</p>
+      <p className="side-note">Switching versions restarts php-fpm. The nginx configuration does not change.</p>
     </>
   )
 }
@@ -352,27 +352,27 @@ function PortsSidebar({ r, onNavigate }: { r: Resource<PortsInfo>; onNavigate: (
               <strong>Valet · nginx</strong>
               <small>HTTP {info.config.http} · HTTPS {info.config.https}</small>
             </span>
-            <span className={`status-dot ${info.nginxActive ? 'ok' : 'idle'}`} title={info.nginxActive ? 'Activo' : 'Detenido'} />
+            <span className={`status-dot ${info.nginxActive ? 'ok' : 'idle'}`} title={info.nginxActive ? 'Running' : 'Stopped'} />
           </button>
           <button className="side-card" onClick={() => jump('ports-apache')}>
             <span className="side-card-icon"><Icon name="folder_server_open" size={18} /></span>
             <span className="side-card-text">
               <strong>Apache</strong>
-              <small>{info.apache.installed ? (info.apache.active ? 'activo' : 'detenido') : 'no instalado'}</small>
+              <small>{info.apache.installed ? (info.apache.active ? 'running' : 'stopped') : 'not installed'}</small>
             </span>
-            {info.apache.installed && <span className={`status-dot ${info.apache.active ? 'ok' : 'idle'}`} title={info.apache.active ? 'Activo' : 'Detenido'} />}
+            {info.apache.installed && <span className={`status-dot ${info.apache.active ? 'ok' : 'idle'}`} title={info.apache.active ? 'Running' : 'Stopped'} />}
           </button>
           <button className="side-card" onClick={() => jump('ports-usage')}>
             <span className="side-card-icon"><Glyph name="ports" size={18} /></span>
             <span className="side-card-text">
-              <strong>Uso de puertos</strong>
-              <small>{info.usage.length} en escucha · {conflicts} conflictos</small>
+              <strong>Port usage</strong>
+              <small>{info.usage.length} listening · {conflicts} conflicts</small>
             </span>
             {conflicts > 0
               ? <span className="side-count warn">{conflicts}</span>
-              : <span className="status-dot ok" title="Sin conflictos" />}
+              : <span className="status-dot ok" title="No conflicts" />}
           </button>
-          <p className="side-note">Los cambios se validan con <code>nginx -t</code> y se revierten si fallan.</p>
+          <p className="side-note">Changes are validated with <code>nginx -t</code> and rolled back if they fail.</p>
         </>
       )}
     </>
@@ -398,7 +398,7 @@ function ServicesSidebar({ r, selected, onSelect }: {
                 <Icon name={serviceIcon(s.name)} size={17} />
                 <span className="side-item-text">
                   <span className="side-item-name">{s.name}</span>
-                  <span className="side-item-sub">{s.active ? 'activo' : 'detenido'}</span>
+                  <span className="side-item-sub">{s.active ? 'running' : 'stopped'}</span>
                 </span>
                 <span className={`status-dot ${s.active ? 'ok' : 'idle'}`} />
               </button>
@@ -406,14 +406,14 @@ function ServicesSidebar({ r, selected, onSelect }: {
           ))}
         </ul>
       )}
-      {r.data?.length === 0 && <SideEmpty>No hay servicios reconocidos.</SideEmpty>}
+      {r.data?.length === 0 && <SideEmpty>No recognized services.</SideEmpty>}
       {all.length > 0 && (
         <div className="side-summary">
-          <span>{active} activos</span>
-          <span>{all.length - active} detenidos</span>
+          <span>{active} running</span>
+          <span>{all.length - active} stopped</span>
         </div>
       )}
-      <p className="side-note">Las acciones usan <code>systemctl</code> y pueden pedir permisos.</p>
+      <p className="side-note">Actions use <code>systemctl</code> and may ask for permissions.</p>
     </>
   )
 }
@@ -429,12 +429,12 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
           <div className="side-current">
             <span className="side-current-icon"><Icon name="folder_server_open" size={20} /></span>
             <div>
-              <span className="side-label">Sistema</span>
+              <span className="side-label">System</span>
               <strong>{env.distro}</strong>
-              <span className="side-current-sub">{env.pm ? `Gestor: ${env.pm}` : 'Sin gestor compatible'}</span>
+              <span className="side-current-sub">{env.pm ? `Manager: ${env.pm}` : 'No compatible manager'}</span>
             </div>
           </div>
-          <div className="side-group-label">Herramientas</div>
+          <div className="side-group-label">Tools</div>
           <ul className="side-check-list">
             {Object.entries(TOOLS).map(([key, tool]) => {
               // pkexec puede faltar si la elevación va por sudo.
@@ -448,7 +448,7 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
               )
             })}
           </ul>
-          <div className="side-group-label">Red y DNS</div>
+          <div className="side-group-label">Network and DNS</div>
           <ul className="side-check-list">
             <li className={env.dns.networkManager ? 'ok' : 'warn'}>
               <Icon name="folder_connection_open" size={16} />
@@ -462,7 +462,7 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
             </li>
             <li className={env.dns.portFree ? 'ok' : 'warn'}>
               <Icon name="folder_connection_open" size={16} />
-              <span>Puerto {env.dns.port} para DNS</span>
+              <span>Port {env.dns.port} for DNS</span>
               <Glyph name={env.dns.portFree ? 'check' : 'alert'} size={13} />
             </li>
             <li className={env.dns.testResolves ? 'ok' : 'warn'}>
@@ -471,21 +471,21 @@ function InstallSidebar({ r }: { r: Resource<Env> }) {
               <Glyph name={env.dns.testResolves ? 'check' : 'alert'} size={13} />
             </li>
           </ul>
-          {env.composer.conflict && <SideAlert>{env.composer.conflictDetail} Se usará Composer aislado.</SideAlert>}
+          {env.composer.conflict && <SideAlert>{env.composer.conflictDetail} An isolated Composer will be used.</SideAlert>}
           {env.prereqs.some((p) => !p.ok && p.blocking) && (
             <SideAlert>
-              {env.prereqs.filter((p) => !p.ok && p.blocking).map((p) => p.label).join(', ')}: revisa la guía de requisitos previos.
+              {env.prereqs.filter((p) => !p.ok && p.blocking).map((p) => p.label).join(', ')}: see the prerequisites guide.
             </SideAlert>
           )}
-          {env.valet.installed && !env.valet.isolated && <SideAlert>Valet externo detectado. El dashboard usa su propio Composer aislado.</SideAlert>}
-          {env.warnings.some((w) => w.includes('DNS clásico')) && <SideAlert>Hay restos del DNS clásico de Valet. Revisa la red antes de continuar.</SideAlert>}
-          {!env.dns.resolvedActive && <SideAlert>systemd-resolved no está activo. Usa el modo hosts para no tocar la red.</SideAlert>}
+          {env.valet.installed && !env.valet.isolated && <SideAlert>External Valet detected. The dashboard uses its own isolated Composer.</SideAlert>}
+          {env.warnings.some((w) => w.includes('classic DNS')) && <SideAlert>There are leftovers from Valet classic DNS. Check the network before continuing.</SideAlert>}
+          {!env.dns.resolvedActive && <SideAlert>systemd-resolved is not running. Use hosts mode to leave the network alone.</SideAlert>}
           {env.portHogs.length > 0 && (
-            <SideAlert>Puertos 80/443 ocupados: {env.portHogs.join(', ')}</SideAlert>
+            <SideAlert>Ports 80/443 in use: {env.portHogs.join(', ')}</SideAlert>
           )}
         </>
       )}
-      <p className="side-note">La instalación usa un Composer aislado y no reinstala NetworkManager. El DNS seguro no desactiva systemd-resolved.</p>
+      <p className="side-note">The installation uses an isolated Composer and does not reinstall NetworkManager. Safe DNS does not disable systemd-resolved.</p>
     </>
   )
 }
@@ -496,8 +496,8 @@ function ActivityBar({ tab, onSelect, onSettings }: {
   onSettings: () => void
 }) {
   return (
-    <nav className="rail" aria-label="Actividades">
-      <button className="rail-brand" onClick={() => onSelect('sites')} title="Valet Dashboard" aria-label="Ir a Sitios">
+    <nav className="rail" aria-label="Activities">
+      <button className="rail-brand" onClick={() => onSelect('sites')} title="Valet Dashboard" aria-label="Go to Sites">
         <BrandLogo size={30} />
       </button>
       <div className="rail-group">
@@ -515,7 +515,7 @@ function ActivityBar({ tab, onSelect, onSettings }: {
         ))}
       </div>
       <div className="rail-bottom">
-        <button className="rail-btn" onClick={onSettings} aria-label="Ajustes (Ctrl+,)" data-tip="Ajustes  ·  Ctrl+,">
+        <button className="rail-btn" onClick={onSettings} aria-label="Settings (Ctrl+,)" data-tip="Settings  ·  Ctrl+,">
           <Glyph name="settings" size={20} />
         </button>
       </div>
@@ -542,25 +542,25 @@ function StatusBar({ section, sites, php, ports, services, mail, mode, onToggleT
         <span className="status-item">{section}</span>
       </div>
       <div className="status-group">
-        {php && <span className="status-item" title="Versión de PHP en uso">PHP {php.current}</span>}
+        {php && <span className="status-item" title="PHP version in use">PHP {php.current}</span>}
         {ports && (
-          <span className="status-item" title="Estado de nginx">
+          <span className="status-item" title="nginx status">
             <span className={`status-dot ${ports.nginxActive ? 'ok' : 'idle'}`} />nginx
           </span>
         )}
-        {ports && <span className="status-item status-optional" title="Puertos HTTP/HTTPS">{ports.config.http}/{ports.config.https}</span>}
-        {sites && <span className="status-item status-optional">{sites.length} sitios</span>}
-        {services && <span className="status-item status-optional">{activeServices}/{services.length} servicios</span>}
+        {ports && <span className="status-item status-optional" title="HTTP/HTTPS ports">{ports.config.http}/{ports.config.https}</span>}
+        {sites && <span className="status-item status-optional">{sites.length} sites</span>}
+        {services && <span className="status-item status-optional">{activeServices}/{services.length} services</span>}
         {mail && (
-          <span className="status-item" title={mail.running ? 'Mailpit capturando correo' : 'Mailpit detenido'}>
+          <span className="status-item" title={mail.running ? 'Mailpit capturing mail' : 'Mailpit stopped'}>
             <span className={`status-dot ${mail.running ? 'ok' : 'idle'}`} />Mailpit{mail.running ? ` :${mail.ports.ui}` : ''}
           </span>
         )}
         <button
           className="status-btn"
           onClick={onToggleTheme}
-          title={mode === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-          aria-label={mode === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          title={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         >
           <Glyph name={mode === 'dark' ? 'sun' : 'moon'} size={13} />
         </button>
@@ -589,32 +589,32 @@ function Sites({ r, query, selected, onCreate }: {
 
   return (
     <Page
-      title="Sitios"
-      hint="Carpetas servidas por Valet (parked y linked). Crea proyectos Laravel, activa HTTPS o abre cada sitio."
+      title="Sites"
+      hint="Folders served by Valet (parked and linked). Create Laravel projects, enable HTTPS or open each site."
       error={r.error || a.error}
       loading={r.loading}
       onRefresh={r.reload}
       actions={
         <button className="btn primary" onClick={onCreate}>
-          <Glyph name="plus" size={14} />Nuevo proyecto
+          <Glyph name="plus" size={14} />New project
         </button>
       }
     >
       {r.loading && !r.data && <RowsSkeleton />}
       {r.data?.length === 0 && (
-        <EmptyState icon="sites" title="Aún no hay sitios">
-          Crea uno con <strong>Nuevo proyecto</strong> o ejecuta <code>valet park</code> dentro de tu
-          carpeta de proyectos para servirlos aquí.
+        <EmptyState icon="sites" title="No sites yet">
+          Create one with <strong>New project</strong> or run <code>valet park</code> inside your
+          projects folder to serve them here.
         </EmptyState>
       )}
       {r.data && r.data.length > 0 && (
         <>
           <div className="list-bar">
-            <span>{q ? `${filtered.length} de ${all.length} sitios` : `${all.length} sitios`}</span>
-            <span>{secure} con HTTPS</span>
+            <span>{q ? `${filtered.length} of ${all.length} sites` : `${all.length} sites`}</span>
+            <span>{secure} with HTTPS</span>
           </div>
           {filtered.length === 0
-            ? <EmptyState icon="search" title="Sin coincidencias">No hay sitios que coincidan con «{query}».</EmptyState>
+            ? <EmptyState icon="search" title="No matches">No sites match “{query}”.</EmptyState>
             : (
               <ul className="rows">
                 {filtered.map((s) => (
@@ -635,15 +635,15 @@ function Sites({ r, query, selected, onCreate }: {
                       <button
                         className="btn"
                         disabled={a.busy || !s.url}
-                        title={s.url ? `Abrir ${s.url} en el navegador` : 'Nombre de sitio no válido para abrirlo en el navegador'}
+                        title={s.url ? `Open ${s.url} in the browser` : 'Site name cannot be opened in the browser'}
                         onClick={() => a.act(() => window.api.sites.open(s.name))}
                       >
                         <Glyph name="globe" size={13} />
-                        Abrir
+                        Open
                       </button>
                       <button className="btn" disabled={a.busy} onClick={() => a.act(() => window.api.sites.secure(s.name, !s.secure))}>
                         <Glyph name={s.secure ? 'unlock' : 'lock'} size={13} />
-                        {s.secure ? 'Quitar HTTPS' : 'Activar HTTPS'}
+                        {s.secure ? 'Disable HTTPS' : 'Enable HTTPS'}
                       </button>
                     </div>
                   </li>
@@ -670,7 +670,7 @@ function Php({ r, selected }: { r: Resource<PhpInfo>; selected: string | null })
   return (
     <Page
       title="PHP"
-      hint="Versiones de php-fpm instaladas. Se cambia con valet use."
+      hint="Installed php-fpm versions. Switch them with valet use."
       error={r.error || a.error}
       loading={r.loading}
       onRefresh={r.reload}
@@ -679,13 +679,13 @@ function Php({ r, selected }: { r: Resource<PhpInfo>; selected: string | null })
       {r.data && (
         <>
           <div className="list-bar">
-            <span>{versions.length} versiones instaladas</span>
-            <span className="tag on"><Glyph name="check" size={11} />Actual: PHP {current}</span>
+            <span>{versions.length} installed versions</span>
+            <span className="tag on"><Glyph name="check" size={11} />Current: PHP {current}</span>
           </div>
           {versions.length === 0
             ? (
-              <EmptyState icon="php" title="No se encontró ningún php-fpm">
-                Instala uno, por ejemplo <code>php8.3-fpm</code>.
+              <EmptyState icon="php" title="No php-fpm installation found">
+                Install one, for example <code>php8.3-fpm</code>.
               </EmptyState>
             )
             : (
@@ -701,12 +701,12 @@ function Php({ r, selected }: { r: Resource<PhpInfo>; selected: string | null })
                       <div className="row-text"><strong>PHP {v}</strong><small>php-fpm</small></div>
                     </div>
                     <div className="row-meta">
-                      {current === v && <span className="tag on"><Glyph name="check" size={11} />en uso</span>}
+                      {current === v && <span className="tag on"><Glyph name="check" size={11} />in use</span>}
                     </div>
                     <div className="row-actions">
                       {current !== v && (
                         <button className="btn" disabled={a.busy} onClick={() => a.act(() => window.api.php.use(v))}>
-                          <Glyph name="play" size={12} />Usar esta versión
+                          <Glyph name="play" size={12} />Use this version
                         </button>
                       )}
                     </div>
@@ -749,8 +749,8 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
 
   return (
     <Page
-      title="Puertos"
-      hint="Cambia los puertos de Valet (nginx) y de Apache sin tocar el resto de la red."
+      title="Ports"
+      hint="Change the Valet (nginx) and Apache ports without touching the rest of the network."
       error={r.error || a.error}
       loading={r.loading}
       onRefresh={r.reload}
@@ -762,7 +762,7 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
             <div className="panel-head">
               <span className="panel-icon"><Icon name="nginx" size={18} /></span>
               <h2 className="panel-title">Valet · nginx</h2>
-              <span className={`tag ${info.nginxActive ? 'on' : ''}`}>{info.nginxActive ? 'activo' : 'detenido'}</span>
+              <span className={`tag ${info.nginxActive ? 'on' : ''}`}>{info.nginxActive ? 'running' : 'stopped'}</span>
             </div>
             <div className="form-grid">
               <label>HTTP<input type="number" min={1} max={65535} value={http} onChange={(e) => setHttp(e.target.value)} /></label>
@@ -777,12 +777,12 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
             </div>
             <div className="panel-actions">
               <button className="btn primary" disabled={a.busy || !valetReady} onClick={() => a.act(() => window.api.ports.set(Number(http), Number(https)))}>
-                <Glyph name="check" size={14} />Guardar y recargar nginx
+                <Glyph name="check" size={14} />Save and reload nginx
               </button>
             </div>
             <p className="panel-note">
-              Valida la configuración con <code>nginx -t</code>, guarda copias en <code>~/.valet-dashboard/backups</code> y restaura la anterior si algo falla.
-              Con puertos personalizados, abre tus sitios como <code>sitio.test:{http || '…'}</code>. No se permiten puertos reservados a DNS/DHCP/NTP/mDNS (53, 67, 68, 123, 5353).
+              Validates the configuration with <code>nginx -t</code>, keeps copies in <code>~/.valet-dashboard/backups</code> and restores the previous one if anything fails.
+              With custom ports, open your sites as <code>site.test:{http || '…'}</code>. Ports reserved for DNS/DHCP/NTP/mDNS (53, 67, 68, 123, 5353) are not allowed.
             </p>
           </div>
 
@@ -791,8 +791,8 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
               <span className="panel-icon"><Icon name="folder_server_open" size={18} /></span>
               <h2 className="panel-title">Apache</h2>
               {info.apache.installed
-                ? <span className={`tag ${info.apache.active ? 'on' : ''}`}>{info.apache.active ? 'activo' : info.apache.enabled ? 'detenido (arranca al inicio)' : 'detenido'}</span>
-                : <span className="tag">no instalado</span>}
+                ? <span className={`tag ${info.apache.active ? 'on' : ''}`}>{info.apache.active ? 'running' : info.apache.enabled ? 'stopped (starts at boot)' : 'stopped'}</span>
+                : <span className="tag">not installed</span>}
             </div>
             {info.apache.installed ? (
               <>
@@ -809,30 +809,30 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
                 </div>
                 <div className="panel-actions">
                   <button className="btn primary" disabled={a.busy || !apacheReady} onClick={() => a.act(() => window.api.ports.setApache(Number(apacheHttp), Number(apacheHttps)))}>
-                    <Glyph name="check" size={14} />Guardar y recargar Apache
+                    <Glyph name="check" size={14} />Save and reload Apache
                   </button>
                   <button className="btn" disabled={a.busy} onClick={() => a.act(async () => {
                     await window.api.services.action('apache2', info.apache.active ? 'stop' : 'start')
                     onServiceChange()
                   })}>
                     <Glyph name={info.apache.active ? 'stop' : 'play'} size={12} />
-                    {info.apache.active ? 'Detener Apache' : 'Iniciar Apache'}
+                    {info.apache.active ? 'Stop Apache' : 'Start Apache'}
                   </button>
                 </div>
                 <p className="panel-note">
-                  Si Apache ocupa 80/443, muévelo a 8080/8443 o detenlo para liberar los puertos de Valet.
-                  Se valida con <code>apache2ctl configtest</code> y se restaura la copia anterior si falla.
+                  If Apache holds 80/443, move it to 8080/8443 or stop it to free the Valet ports.
+                  It is validated with <code>apache2ctl configtest</code> and the previous copy is restored if it fails.
                 </p>
               </>
             ) : (
-              <p className="panel-note">No se encontró Apache en <code>/etc/apache2</code>. Valet usa nginx y no necesita Apache.</p>
+              <p className="panel-note">Apache was not found in <code>/etc/apache2</code>. Valet uses nginx and does not need Apache.</p>
             )}
           </div>
 
           <div id="ports-usage" className="usage-block">
             <div className="section-head">
-              <h2>Puertos en escucha</h2>
-              <span>{info.usage.length} procesos · {conflicts} conflictos</span>
+              <h2>Listening ports</h2>
+              <span>{info.usage.length} processes · {conflicts} conflicts</span>
             </div>
             <ul className="rows">
               {info.usage.map((u) => {
@@ -843,11 +843,11 @@ function Ports({ r, onServiceChange }: { r: Resource<PortsInfo>; onServiceChange
                   <li key={u.port} className={conflict ? 'conflict' : ''}>
                     <div className="row-main">
                       <span className="row-icon"><Icon name={portIcon(u)} size={18} /></span>
-                      <div className="row-text"><strong>:{u.port}</strong><small>{KNOWN[u.port] ?? 'Otro servicio'}</small></div>
+                      <div className="row-text"><strong>:{u.port}</strong><small>{KNOWN[u.port] ?? 'Other service'}</small></div>
                     </div>
                     <div className="row-meta">
                       {mine.has(u.port) && proc === 'nginx' && <span className="tag on">Valet</span>}
-                      {conflict && <span className="tag warn"><Glyph name="alert" size={11} />choca con Valet</span>}
+                      {conflict && <span className="tag warn"><Glyph name="alert" size={11} />conflicts with Valet</span>}
                     </div>
                     <div className="row-actions">
                       <span className="proc">{proc}{u.pid && <small>pid {u.pid}</small>}</span>
@@ -880,8 +880,8 @@ function Services({ r, selected, onChanged }: {
 
   return (
     <Page
-      title="Servicios"
-      hint="nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis y PostgreSQL vía systemctl."
+      title="Services"
+      hint="nginx, Apache, dnsmasq, php-fpm, MySQL/MariaDB, Redis and PostgreSQL via systemctl."
       error={r.error || a.error}
       loading={r.loading}
       onRefresh={r.reload}
@@ -890,11 +890,11 @@ function Services({ r, selected, onChanged }: {
       {r.data && (
         <>
           <div className="list-bar">
-            <span>{all.length} servicios</span>
-            <span>{active} activos</span>
+            <span>{all.length} services</span>
+            <span>{active} running</span>
           </div>
           {all.length === 0
-            ? <EmptyState icon="services" title="No hay servicios reconocidos">Revisa que systemd esté disponible y que Valet esté instalado.</EmptyState>
+            ? <EmptyState icon="services" title="No recognized services">Check that systemd is available and Valet is installed.</EmptyState>
             : (
               <ul className="rows">
                 {all.map((s) => (
@@ -905,18 +905,18 @@ function Services({ r, selected, onChanged }: {
                   >
                     <div className="row-main">
                       <span className="row-icon"><Icon name={serviceIcon(s.name)} size={18} /></span>
-                      <div className="row-text"><strong>{s.name}</strong><small>{s.active ? 'en ejecución' : 'detenido'}</small></div>
+                      <div className="row-text"><strong>{s.name}</strong><small>{s.active ? 'running' : 'stopped'}</small></div>
                     </div>
                     <div className="row-meta">
-                      <span className={`tag ${s.active ? 'on' : ''}`}>{s.active ? 'activo' : 'detenido'}</span>
+                      <span className={`tag ${s.active ? 'on' : ''}`}>{s.active ? 'running' : 'stopped'}</span>
                     </div>
                     <div className="row-actions">
                       <button className="btn" disabled={a.busy} onClick={() => a.act(() => window.api.services.action(s.name, s.active ? 'stop' : 'start'))}>
                         <Glyph name={s.active ? 'stop' : 'play'} size={12} />
-                        {s.active ? 'Detener' : 'Iniciar'}
+                        {s.active ? 'Stop' : 'Start'}
                       </button>
                       <button className="btn" disabled={a.busy || !s.active} onClick={() => a.act(() => window.api.services.action(s.name, 'restart'))}>
-                        <Glyph name="restart" size={12} />Reiniciar
+                        <Glyph name="restart" size={12} />Restart
                       </button>
                     </div>
                   </li>
@@ -947,13 +947,13 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
   // El motivo se muestra junto al modo seguro: «no disponible» sin decir por
   // qué obliga a adivinar entre tres comprobaciones.
   const safeReason = !env
-    ? 'faltan datos del sistema'
+    ? 'system data is missing'
     : !env.dns.resolvedActive
-      ? 'systemd-resolved no está activo'
+      ? 'systemd-resolved is not running'
       : !env.dns.resolvConfOk
-        ? '/etc/resolv.conf no apunta a systemd-resolved'
+        ? '/etc/resolv.conf does not point to systemd-resolved'
         : !env.dns.portFree
-          ? `el puerto ${env.dns.port} está ocupado`
+          ? `port ${env.dns.port} is in use`
           : ''
   const safeAvailable = Boolean(env) && !safeReason
   const portBlocked = Boolean(env && env.portHogs.length > 0 && !(stopApache && env.portHogs.every((h) => /apache/i.test(h))))
@@ -998,7 +998,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
     } catch (e) {
       const message = errorMessage(e)
       // Cancelar no es un fallo: no merece el cartel rojo.
-      if (message !== 'Operación cancelada') setError(message)
+      if (message !== 'Operation cancelled') setError(message)
     }
     setBusy(false)
     onChanged()
@@ -1006,16 +1006,16 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
 
   const start = () => {
     if (dnsMode === 'classic' &&
-      !confirm('El modo clásico deja que Valet modifique systemd-resolved, /etc/resolv.conf y NetworkManager. Puede cortar el WiFi o el DNS. ¿Continuar?')) return
+      !confirm('Classic mode lets Valet modify systemd-resolved, /etc/resolv.conf and NetworkManager. It can cut off Wi-Fi or DNS. Continue?')) return
     if (env?.valet.installed && !env.valet.isolated &&
-      !confirm('Hay un Valet externo detectado. El instalador creará un Composer aislado y reemplazará /usr/local/bin/valet. ¿Continuar?')) return
+      !confirm('An external Valet was detected. The installer will create an isolated Composer and replace /usr/local/bin/valet. Continue?')) return
     void go(() => window.api.install.start({ pkg, parkDir, stopApache, dnsMode }))
   }
 
   return (
     <Page
-      title="Instalación"
-      hint="Instala Valet con Composer aislado, repara la red y elige cómo se resuelven tus sitios de desarrollo. El modo clásico puede cortar la conexión; los otros dos no tocan tu red."
+      title="Installation"
+      hint="Install Valet with an isolated Composer, repair the network and choose how your development sites resolve. Classic mode can cut the connection; the other two leave your network alone."
       error={r.error || error}
       loading={r.loading}
       onRefresh={r.reload}
@@ -1029,7 +1029,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
                 <span className="row-icon"><Icon name="folder_server_open" size={18} /></span>
                 <div className="row-text">
                   <strong>{env.distro}</strong>
-                  <small>{env.pm ? `Gestor de paquetes: ${env.pm}` : 'Distribución no soportada para la instalación automática'}</small>
+                  <small>{env.pm ? `Package manager: ${env.pm}` : 'Distribution not supported for automatic installation'}</small>
                 </div>
               </div>
             </li>
@@ -1039,12 +1039,12 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
                   <span className="row-icon"><Icon name={tool.icon} size={18} /></span>
                   <div className="row-text">
                     <strong>{tool.label}</strong>
-                    <small>{tool.label === 'Valet' ? (env.valet.isolated ? 'Composer aislado' : 'valet-linux') : key === 'pkexec' && env.elevation === 'sudo' ? 'vía sudo' : 'requerido'}</small>
+                    <small>{tool.label === 'Valet' ? (env.valet.isolated ? 'Isolated Composer' : 'valet-linux') : key === 'pkexec' && env.elevation === 'sudo' ? 'via sudo' : 'required'}</small>
                   </div>
                 </div>
                 <div className="row-meta">
-                  <span className={`tag ${toolOk(key) ? 'on' : 'warn'}`}>{toolOk(key) ? 'instalado' : 'falta'}</span>
-                  {key === 'composer' && env.composer.conflict && <span className="tag warn">conflicto global</span>}
+                  <span className={`tag ${toolOk(key) ? 'on' : 'warn'}`}>{toolOk(key) ? 'installed' : 'missing'}</span>
+                  {key === 'composer' && env.composer.conflict && <span className="tag warn">global conflict</span>}
                 </div>
               </li>
             ))}
@@ -1052,9 +1052,9 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
               <li className="conflict">
                 <div className="row-main">
                   <span className="row-icon"><Icon name="folder_warning_open" size={18} /></span>
-                  <div className="row-text"><strong>Puertos 80/443 ocupados</strong><small>{env.portHogs.join(', ')}</small></div>
+                  <div className="row-text"><strong>Ports 80/443 in use</strong><small>{env.portHogs.join(', ')}</small></div>
                 </div>
-                <div className="row-meta"><span className="tag warn"><Glyph name="alert" size={11} />posible conflicto</span></div>
+                <div className="row-meta"><span className="tag warn"><Glyph name="alert" size={11} />possible conflict</span></div>
               </li>
             )}
           </ul>
@@ -1063,7 +1063,7 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
             <div className="panel">
               <div className="panel-head">
                 <span className="panel-icon"><Icon name="folder_warning_open" size={18} /></span>
-                <h2 className="panel-title">Advertencias del sistema</h2>
+                <h2 className="panel-title">System warnings</h2>
               </div>
               <ul className="side-check-list">
                 {env.warnings.map((w, i) => (
@@ -1111,14 +1111,14 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
       <div className="panel" id="install-options">
         <div className="panel-head">
           <span className="panel-icon"><Glyph name="install" size={17} /></span>
-          <h2 className="panel-title">Opciones de instalación</h2>
+          <h2 className="panel-title">Installation options</h2>
         </div>
         <div className="form-grid wide">
-          <label>Paquete de Valet<input value={pkg} onChange={(e) => setPkg(e.target.value)} /></label>
-          <label>Carpeta de proyectos<input placeholder="~/Sites" value={parkDir} onChange={(e) => setParkDir(e.target.value)} /></label>
+          <label>Valet package<input value={pkg} onChange={(e) => setPkg(e.target.value)} /></label>
+          <label>Projects folder<input placeholder="~/Sites" value={parkDir} onChange={(e) => setParkDir(e.target.value)} /></label>
           <label className="check">
             <input type="checkbox" checked={stopApache} onChange={(e) => setStopApache(e.target.checked)} />
-            Detener y deshabilitar Apache si ocupa 80/443
+            Stop and disable Apache if it holds 80/443
           </label>
         </div>
         <div className="panel-actions">
@@ -1129,36 +1129,36 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
             onClick={start}
           >
             <Glyph name="install" size={14} />{busy
-              ? 'Trabajando…'
+              ? 'Working…'
               : installed
-                ? 'Reparar instalación'
-                : env?.pm ? 'Instalar Valet' : 'Continuar con lo instalado'}
+                ? 'Repair installation'
+                : env?.pm ? 'Install Valet' : 'Continue with what is installed'}
           </button>
           {busy && (
             <button className="btn" onClick={() => void window.api.install.cancel()}>
-              <Glyph name="close" size={13} />Cancelar
+              <Glyph name="close" size={13} />Cancel
             </button>
           )}
-          <button className="btn danger" disabled={busy || !installed || !env?.valet.isolated} onClick={() => confirm('¿Desinstalar Valet y quitar su paquete de Composer?') && go(() => window.api.install.uninstall(pkg))}>
-            <Glyph name="close" size={13} />Desinstalar
+          <button className="btn danger" disabled={busy || !installed || !env?.valet.isolated} onClick={() => confirm('Uninstall Valet and remove its Composer package?') && go(() => window.api.install.uninstall(pkg))}>
+            <Glyph name="close" size={13} />Uninstall
           </button>
         </div>
         {blockReason && (
           <p className="panel-warn" id="install-block-reason">{blockReason}</p>
         )}
         <p className="panel-note">
-          Se usa <code>{env?.composer.isolatedHome ?? '~/.config/valet-dashboard/composer'}</code>, no el Composer global.
-          Se pedirá la contraseña de administrador en ventanas del sistema.
-          No ejecutes <code>valet install</code> ni <code>valet uninstall</code> desde la terminal: el panel activa la protección DNS.
-          {env?.valet.installed && !env.valet.isolated && ' El Valet detectado es externo y no se desinstala automáticamente.'}
+          It uses <code>{env?.composer.isolatedHome ?? '~/.config/valet-dashboard/composer'}</code>, not the global Composer.
+          The administrator password is requested in system windows.
+          Do not run <code>valet install</code> or <code>valet uninstall</code> from a terminal: the panel enables DNS protection.
+          {env?.valet.installed && !env.valet.isolated && ' The detected Valet is external and is not uninstalled automatically.'}
         </p>
       </div>
 
       {steps.length > 0 && (
         <section id="install-progress" className="install-section" ref={progressRef}>
           <div className="section-head">
-            <h2>Progreso</h2>
-            <span>{steps.filter((s) => s.status === 'ok').length} de {steps.length} pasos</span>
+            <h2>Progress</h2>
+            <span>{steps.filter((s) => s.status === 'ok').length} of {steps.length} steps</span>
           </div>
           <ol className="steps">
             {steps.map((s, i) => (
@@ -1183,8 +1183,8 @@ function Install({ r, onChanged, visible }: { r: Resource<Env>; onChanged: () =>
       {log && (
         <section className="log-block">
           <div className="section-head">
-            <h2><Glyph name="terminal" size={15} />Registro</h2>
-            <button className="btn ghost" onClick={() => setLog('')}>Limpiar</button>
+            <h2><Glyph name="terminal" size={15} />Log</h2>
+            <button className="btn ghost" onClick={() => setLog('')}>Clear</button>
           </div>
           <pre className="log" ref={logRef}>{log}</pre>
         </section>
@@ -1387,8 +1387,8 @@ export default function App() {
               className="icon-btn"
               onClick={() => setSidebarOpen((v) => !v)}
               aria-pressed={sidebarOpen}
-              aria-label={sidebarOpen ? 'Ocultar panel lateral' : 'Mostrar panel lateral'}
-              title="Alternar panel (Ctrl+B)"
+              aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              title="Toggle panel (Ctrl+B)"
             >
               <Glyph name="panel" size={17} />
             </button>
@@ -1420,7 +1420,7 @@ export default function App() {
           mode={mode}
           onToggleTheme={toggleTheme}
         />
-        {sidebarOpen && <button className="scrim" aria-label="Cerrar panel lateral" onClick={() => setSidebarOpen(false)} tabIndex={-1} />}
+        {sidebarOpen && <button className="scrim" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)} tabIndex={-1} />}
         {settingsOpen && <SettingsDialog s={settings} set={setSettings} onClose={() => setSettingsOpen(false)} />}
         {createOpen && (
           <CreateProjectDialog

@@ -123,7 +123,7 @@ function apiRequest(config: MailpitConfig, path: string, method = 'GET', body?: 
       res.on('data', (c) => { data += c })
       res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }))
     })
-    req.on('timeout', () => req.destroy(new Error('Mailpit no respondió a tiempo')))
+    req.on('timeout', () => req.destroy(new Error('Mailpit did not respond in time')))
     req.on('error', reject)
     if (payload) req.write(payload)
     req.end()
@@ -184,18 +184,18 @@ export async function getInfo(): Promise<MailpitInfo> {
   ])
   const actualVersion = live?.Version ?? (binary ? await binaryVersion(binary) : null)
   const warnings: string[] = []
-  if (!systemd) warnings.push('systemctl --user no está disponible en esta sesión; Mailpit no podrá ejecutarse como servicio de usuario.')
-  if (!binary) warnings.push('No hay ningún binario de Mailpit. Instálalo desde este panel.')
-  if (binary && !running) warnings.push('Mailpit está instalado pero detenido. Inícialo para capturar correo.')
-  if (!isLoopback(addressHost(config.options.MP_UI_BIND_ADDR))) warnings.push('La UI de Mailpit escucha fuera de localhost; el buzón queda expuesto en la red.')
-  if (!isLoopback(addressHost(config.options.MP_SMTP_BIND_ADDR))) warnings.push('El SMTP escucha fuera de localhost; cualquiera en la red podría enviar correo.')
+  if (!systemd) warnings.push('systemctl --user is not available in this session; Mailpit cannot run as a user service.')
+  if (!binary) warnings.push('There is no Mailpit binary. Install it from this panel.')
+  if (binary && !running) warnings.push('Mailpit is installed but stopped. Start it to capture mail.')
+  if (!isLoopback(addressHost(config.options.MP_UI_BIND_ADDR))) warnings.push('The Mailpit UI listens outside localhost; the mailbox is exposed to the network.')
+  if (!isLoopback(addressHost(config.options.MP_SMTP_BIND_ADDR))) warnings.push('SMTP listens outside localhost; anyone on the network could send mail.')
   if (config.options.MP_ENABLE_SPAMASSASSIN?.trim()) {
-    warnings.push(`SpamAssassin está activo (${config.options.MP_ENABLE_SPAMASSASSIN}); comprueba que responde.`)
+    warnings.push(`SpamAssassin is active (${config.options.MP_ENABLE_SPAMASSASSIN}); check that it responds.`)
   }
   if (!config.auth.pop3.enabled) {
     warnings.push(MAILPIT_POP3_WARNING)
   }
-  if (actualVersion && released && actualVersion !== released) warnings.push(`Hay una versión nueva de Mailpit: ${released} (instalada ${actualVersion}).`)
+  if (actualVersion && released && actualVersion !== released) warnings.push(`A new Mailpit version is available: ${released} (installed ${actualVersion}).`)
 
   return {
     installed: Boolean(binary),
@@ -250,13 +250,13 @@ async function waitHealth(config: MailpitConfig, timeoutMs = 15_000): Promise<bo
 }
 
 async function startUnit(config: MailpitConfig, enable: boolean) {
-  if (!(await systemdAvailable())) throw new Error('systemctl --user no está disponible; no se puede iniciar Mailpit como servicio')
+  if (!(await systemdAvailable())) throw new Error('systemctl --user is not available; Mailpit cannot be started as a service')
   if (enable) await run('systemctl', ['--user', 'enable', MAILPIT_UNIT])
   else await run('systemctl', ['--user', 'disable', MAILPIT_UNIT], true)
   await run('systemctl', ['--user', 'restart', MAILPIT_UNIT])
   if (!(await waitHealth(config))) {
     const logs = await journal(40)
-    throw new Error(`Mailpit no quedó saludable. Revisa el registro.\n${logs}`)
+    throw new Error(`Mailpit did not come up healthy. Check the log.\n${logs}`)
   }
 }
 
@@ -268,20 +268,20 @@ export async function install(emit: Emit = () => {}): Promise<MailpitInfo> {
   const config = await loadConfig()
   const release = await latestRelease(config)
   const asset = release.assets.find((a) => a.name === `mailpit-linux-${assetArch()}.tar.gz`)
-  if (!asset) throw new Error(`El release ${release.tag_name} no incluye binario para ${process.arch}`)
+  if (!asset) throw new Error(`Release ${release.tag_name} has no binary for ${process.arch}`)
 
-  emit({ type: 'status', text: `Descargando Mailpit ${release.tag_name}…` })
-  const data = await download(asset, (percent) => emit({ type: 'progress', percent, text: 'Descargando Mailpit' }))
-  emit({ type: 'status', text: 'Verificando SHA-256…' })
+  emit({ type: 'status', text: `Downloading Mailpit ${release.tag_name}…` })
+  const data = await download(asset, (percent) => emit({ type: 'progress', percent, text: 'Downloading Mailpit' }))
+  emit({ type: 'status', text: 'Verifying SHA-256…' })
   const expected = asset.digest?.replace(/^sha256:/i, '').toLowerCase()
   if (expected) {
     const actual = sha256(data)
-    if (actual !== expected) throw new Error(`La verificación SHA-256 falló (esperado ${expected}, obtenido ${actual})`)
+    if (actual !== expected) throw new Error(`SHA-256 verification failed (expected ${expected}, got ${actual})`)
   } else {
-    emit({ type: 'log', text: 'El release no publica digest; se omite la verificación SHA-256.\n' })
+    emit({ type: 'log', text: 'The release does not publish a digest; skipping SHA-256 verification.\n' })
   }
 
-  emit({ type: 'status', text: 'Extrayendo el binario…' })
+  emit({ type: 'status', text: 'Extracting the binary…' })
   await mkdir(BIN_DIR, { recursive: true })
   if (existsSync(MANAGED_BIN)) await copyFile(MANAGED_BIN, PREV_BIN)
   const work = join(tmpdir(), `mailpit-${process.pid}-${Date.now()}`)
@@ -291,7 +291,7 @@ export async function install(emit: Emit = () => {}): Promise<MailpitInfo> {
     await writeFile(tgz, data)
     await run('tar', ['-xzf', tgz, '-C', work])
     const found = await findFile(work, 'mailpit')
-    if (!found) throw new Error('El archivo descargado no contiene el binario mailpit')
+    if (!found) throw new Error('The downloaded file does not contain the mailpit binary')
     await chmod(found, 0o755)
     await copyFile(found, MANAGED_BIN)
     await chmod(MANAGED_BIN, 0o755)
@@ -304,10 +304,10 @@ export async function install(emit: Emit = () => {}): Promise<MailpitInfo> {
 
   const wasRunning = await unitActive()
   const next: MailpitConfig = { ...config, binarySource: 'managed' }
-  emit({ type: 'status', text: 'Aplicando configuración…' })
+  emit({ type: 'status', text: 'Applying configuration…' })
   await applyConfig(next)
   if (wasRunning || config.startAtLogin) {
-    emit({ type: 'status', text: 'Iniciando Mailpit…' })
+    emit({ type: 'status', text: 'Starting Mailpit…' })
     try {
       await startUnit(next, config.startAtLogin)
     } catch (e) {
@@ -344,7 +344,7 @@ function assetArch(): string {
 async function latestRelease(config: MailpitConfig): Promise<Release> {
   if (releaseCache && Date.now() - releaseCache.at < RELEASE_TTL) return releaseCache.release
   if (releaseFailureAt && Date.now() - releaseFailureAt < RELEASE_RETRY) {
-    throw new Error('No se pudo consultar GitHub hace un momento; se reintentará en unos minutos.')
+    throw new Error('GitHub could not be queried a moment ago; it will be retried in a few minutes.')
   }
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
@@ -363,7 +363,7 @@ async function latestRelease(config: MailpitConfig): Promise<Release> {
   }
   if (!res.ok) {
     releaseFailureAt = Date.now()
-    throw new Error(`GitHub respondió ${res.status}. Configura un token si has agotado el límite de peticiones.`)
+    throw new Error(`GitHub responded ${res.status}. Set a token if you have hit the request limit.`)
   }
   const release = await res.json() as Release
   releaseCache = { at: Date.now(), release }
@@ -377,7 +377,7 @@ async function latestVersion(config: MailpitConfig): Promise<string | null> {
 
 async function download(asset: ReleaseAsset, onProgress: (percent: number) => void): Promise<Buffer> {
   const res = await fetch(asset.browser_download_url, { redirect: 'follow' })
-  if (!res.ok || !res.body) throw new Error(`No se pudo descargar Mailpit (${res.status})`)
+  if (!res.ok || !res.body) throw new Error(`Could not download Mailpit (${res.status})`)
   const total = Number(res.headers.get('content-length')) || asset.size || 0
   const chunks: Uint8Array[] = []
   let received = 0
@@ -415,7 +415,7 @@ export async function save(input: MailpitConfig): Promise<MailpitInfo> {
 export async function start(): Promise<MailpitInfo> {
   const config = await loadConfig()
   const applied = await applyConfig(config)
-  if (!applied.binary) throw new Error('Instala Mailpit antes de iniciarlo')
+  if (!applied.binary) throw new Error('Install Mailpit before starting it')
   await startUnit(applied.config, applied.config.startAtLogin)
   return getInfo()
 }
@@ -428,20 +428,20 @@ export async function stop(): Promise<MailpitInfo> {
 export async function restart(): Promise<MailpitInfo> {
   const config = await loadConfig()
   const applied = await applyConfig(config)
-  if (!applied.binary) throw new Error('Instala Mailpit antes de reiniciarlo')
+  if (!applied.binary) throw new Error('Install Mailpit before restarting it')
   await startUnit(applied.config, applied.config.startAtLogin)
   return getInfo()
 }
 
 export async function useSystem(path: string): Promise<MailpitInfo> {
-  if (!path || !existsSync(path)) throw new Error('La ruta del Mailpit del sistema no existe')
+  if (!path || !existsSync(path)) throw new Error('The system Mailpit path does not exist')
   if (!isTrustedBinaryPath(TRUSTED_BIN_ROOTS, path)) {
-    throw new Error(`Solo se acepta un Mailpit instalado en una carpeta del sistema (${TRUSTED_BIN_ROOTS.join(', ')})`)
+    throw new Error(`Only a Mailpit installed in a system folder is accepted (${TRUSTED_BIN_ROOTS.join(', ')})`)
   }
   const resolved = await realpath(path)
   const info = await stat(resolved)
-  if (!info.isFile() || (info.mode & 0o111) === 0) throw new Error('El archivo indicado no es un ejecutable')
-  if (!(await binaryVersion(resolved))) throw new Error('El archivo indicado no parece un binario de Mailpit ejecutable')
+  if (!info.isFile() || (info.mode & 0o111) === 0) throw new Error('The given file is not executable')
+  if (!(await binaryVersion(resolved))) throw new Error('The given file does not look like a runnable Mailpit binary')
   const config = await loadConfig()
   return save({ ...config, binarySource: 'system', systemBinary: resolved })
 }
@@ -459,7 +459,7 @@ export async function uninstall(deleteData: boolean): Promise<void> {
   if (/^https?:\/\//i.test(raw)) return
   let db: string | null = null
   try {
-    db = await resolveWithinRoot(MAILPIT_DATA_DIR, raw, 'La base de datos')
+    db = await resolveWithinRoot(MAILPIT_DATA_DIR, raw, 'The database')
   } catch (e) {
     if (!(e instanceof UnsafePathError)) throw e
     // La base apunta fuera del directorio del panel: no se borra.
@@ -473,7 +473,7 @@ export async function logs(lines = 200): Promise<string> {
   const file = config.options.MP_LOG_FILE?.trim()
   if (file) {
     try {
-      const safe = await resolveWithinRoot(MAILPIT_DATA_DIR, file, 'El archivo de registro')
+      const safe = await resolveWithinRoot(MAILPIT_DATA_DIR, file, 'The log file')
       const content = await readFile(safe, 'utf8')
       return content.split('\n').slice(-lines).join('\n')
     } catch { /* cae a journalctl */ }
@@ -484,19 +484,19 @@ export async function logs(lines = 200): Promise<string> {
 export async function clearMessages(): Promise<void> {
   const config = await loadConfig()
   const r = await apiRequest(config, '/api/v1/messages', 'DELETE')
-  if (r.status < 200 || r.status >= 300) throw new Error(`Mailpit rechazó el vaciado (${r.status})`)
+  if (r.status < 200 || r.status >= 300) throw new Error(`Mailpit rejected the purge (${r.status})`)
 }
 
 export async function sendTest(to: string): Promise<void> {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new Error('Dirección de correo no válida')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new Error('Invalid email address')
   const config = await loadConfig()
   const r = await apiRequest(config, '/api/v1/send', 'POST', {
     From: { Email: 'valet-dashboard@localhost', Name: 'Valet Dashboard' },
     To: [{ Email: to }],
-    Subject: 'Correo de prueba de Valet Dashboard',
-    Text: 'Si ves este mensaje, Mailpit está capturando correo correctamente.'
+    Subject: 'Valet Dashboard test mail',
+    Text: 'If you see this message, Mailpit is capturing mail correctly.'
   })
-  if (r.status < 200 || r.status >= 300) throw new Error(`Mailpit rechazó el envío (${r.status}): ${r.body.slice(0, 200)}`)
+  if (r.status < 200 || r.status >= 300) throw new Error(`Mailpit rejected the send (${r.status}): ${r.body.slice(0, 200)}`)
 }
 
 export async function openExternal(): Promise<void> {
@@ -516,7 +516,7 @@ export async function writeAuxiliary(kind: MailpitAuxKind, content: string): Pro
   const next = validateConfig(result.config)
   const options = await materializeConfig(next)
   const binary = (await resolveBinary(next)).binary
-  if (!binary) throw new Error('No hay binario de Mailpit para aplicar el cambio')
+  if (!binary) throw new Error('There is no Mailpit binary to apply the change')
   await saveConfig(next, next.options)
   await writeEnvFile(options)
   await writeUnit(binary)

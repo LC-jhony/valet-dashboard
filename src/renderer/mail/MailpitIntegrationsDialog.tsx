@@ -52,7 +52,7 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
 
   const configure = () => run(async () => {
     const r = await window.api.mailpit.configureEnv(site)
-    setNotice(`.env actualizado: ${r.changed.join(', ') || 'sin cambios'}${r.backup ? ` · copia en ${r.backup}` : ''}`)
+    setNotice(`.env updated: ${r.changed.join(', ') || 'no changes'}${r.backup ? ` · backup at ${r.backup}` : ''}`)
   })
 
   const loadLogs = async () => {
@@ -65,8 +65,8 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
   return (
     <Modal labelledBy="mp-int-title" onClose={onClose} busy={busy} className="mp-dialog mp-dialog-sm">
       <header className="page-head">
-        <h1 id="mp-int-title">Integraciones de correo</h1>
-        <button className="btn ghost" onClick={onClose} disabled={busy}><Glyph name="close" size={13} />Cerrar</button>
+        <h1 id="mp-int-title">Mail integrations</h1>
+        <button className="btn ghost" onClick={onClose} disabled={busy}><Glyph name="close" size={13} />Close</button>
       </header>
 
       {error && <div className="error" role="alert"><Glyph name="alert" size={15} /><span>{error}</span></div>}
@@ -76,54 +76,54 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
         <section className="mp-section">
           <h3>Laravel · .env</h3>
           <p className="mp-hint">
-            Escribe <code>MAIL_MAILER</code>, <code>MAIL_HOST</code>, <code>MAIL_PORT</code> y las credenciales
-            en el <code>.env</code> del sitio. Se guarda una copia antes de cambiar nada.
+            Writes <code>MAIL_MAILER</code>, <code>MAIL_HOST</code>, <code>MAIL_PORT</code> and the credentials
+            into the site's <code>.env</code>. A copy is saved before anything changes.
           </p>
           <div className="mp-inline">
             <label className="mp-field">
-              <span>Sitio</span>
+              <span>Site</span>
               <select value={site} onChange={(e) => setSite(e.target.value)}>
-                {sites.length === 0 && <option value="">No hay sitios registrados</option>}
+                {sites.length === 0 && <option value="">No registered sites</option>}
                 {sites.map((s) => <option key={s.name} value={s.name}>{s.name} · {s.path}</option>)}
               </select>
             </label>
             <button className="btn tonal" disabled={busy || !site} onClick={configure}>
-              <Glyph name="check" size={12} />Configurar .env
+              <Glyph name="check" size={12} />Configure .env
             </button>
           </div>
-          <p className="mp-hint">SMTP: <code>{info.smtpAddr}</code> · cifrado: {info.tls ? 'TLS' : 'sin TLS'}.</p>
+          <p className="mp-hint">SMTP: <code>{info.smtpAddr}</code> · encryption: {info.tls ? 'TLS' : 'none'}.</p>
         </section>
 
         <section className="mp-section">
           <h3>PHP · sendmail_path</h3>
           <p className="mp-hint">
-            Hace que <code>mail()</code> de PHP entregue en Mailpit. Se editan <code>fpm/php.ini</code> y
-            <code> cli/php.ini</code> con <code>pkexec</code>, se guarda copia y se reinicia php-fpm.
+            Makes PHP's <code>mail()</code> deliver to Mailpit. <code>fpm/php.ini</code> and
+            <code> cli/php.ini</code> are edited with <code>pkexec</code>, a copy is saved and php-fpm is restarted.
           </p>
-          {sendmail.length === 0 && <p className="mp-hint">No se detectaron versiones de php-fpm.</p>}
+          {sendmail.length === 0 && <p className="mp-hint">No php-fpm versions were detected.</p>}
           <ul className="mp-php-list">
             {sendmail.map((s) => (
               <li key={s.version}>
                 <div className="mp-php-main">
                   <strong>PHP {s.version}</strong>
-                  <small>{s.fpmFile ?? 'sin fpm/php.ini'} · {s.cliFile ?? 'sin cli/php.ini'}</small>
+                  <small>{s.fpmFile ?? 'no fpm/php.ini'} · {s.cliFile ?? 'no cli/php.ini'}</small>
                   <code>{s.sendmailPath}</code>
                 </div>
-                <span className={`tag ${s.enabled ? 'on' : ''}`}>{s.enabled ? 'configurado' : 'sin configurar'}</span>
+                <span className={`tag ${s.enabled ? 'on' : ''}`}>{s.enabled ? 'configured' : 'not configured'}</span>
                 <div className="mp-php-actions">
                   <button
                     className="btn"
                     disabled={busy || !s.installed || !info.installed}
-                    onClick={() => run(() => window.api.mailpit.setPhpSendmail(s.version, !s.enabled), s.enabled ? 'Sendmail desactivado' : 'Sendmail activado')}
+                    onClick={() => run(() => window.api.mailpit.setPhpSendmail(s.version, !s.enabled), s.enabled ? 'Sendmail disabled' : 'Sendmail enabled')}
                   >
-                    {s.enabled ? 'Desactivar' : 'Activar'}
+                    {s.enabled ? 'Disable' : 'Enable'}
                   </button>
                   <button
                     className="btn tonal"
                     disabled={busy || !s.enabled}
                     onClick={() => run(() => window.api.mailpit.testPhpMail(s.version, to))}
                   >
-                    Probar mail()
+                    Test mail()
                   </button>
                 </div>
               </li>
@@ -132,15 +132,15 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
         </section>
 
         <section className="mp-section">
-          <h3>Correo de prueba</h3>
-          <p className="mp-hint">Envía un mensaje con la API de Mailpit. Se usa como destinatario en la prueba de PHP.</p>
+          <h3>Test mail</h3>
+          <p className="mp-hint">Sends a message through the Mailpit API. It is used as the recipient in the PHP test.</p>
           <div className="mp-inline">
             <label className="mp-field">
-              <span>Destinatario</span>
+              <span>Recipient</span>
               <input value={to} onChange={(e) => setTo(e.target.value)} spellCheck={false} />
             </label>
-            <button className="btn" disabled={busy || !info.running} onClick={() => run(() => window.api.mailpit.sendTest(to), 'Correo de prueba enviado')}>
-              <Glyph name="play" size={12} />Enviar con la API
+            <button className="btn" disabled={busy || !info.running} onClick={() => run(() => window.api.mailpit.sendTest(to), 'Test mail sent')}>
+              <Glyph name="play" size={12} />Send with the API
             </button>
           </div>
         </section>
@@ -148,41 +148,41 @@ export function MailpitIntegrationsDialog({ info, onClose, onChanged }: {
         <section className="mp-section">
           <div className="mp-section-head">
             <div>
-              <h3>Registro</h3>
-              <p className="mp-hint">Salida de <code>journalctl --user</code> o del archivo configurado.</p>
+              <h3>Log</h3>
+              <p className="mp-hint">Output from <code>journalctl --user</code> or the configured file.</p>
             </div>
-            <button className="btn" disabled={busy} onClick={loadLogs}><Glyph name="refresh" size={12} />Cargar</button>
+            <button className="btn" disabled={busy} onClick={loadLogs}><Glyph name="refresh" size={12} />Load</button>
           </div>
           {logs && <pre className="mp-log">{logs}</pre>}
         </section>
 
         <section className="mp-section mp-danger">
-          <h3>Mantenimiento</h3>
-          <p className="mp-hint">Detiene el servicio, elimina la unidad y el binario gestionado. La configuración se conserva.</p>
+          <h3>Maintenance</h3>
+          <p className="mp-hint">Stops the service, removes the unit and the managed binary. The configuration is kept.</p>
           <label className="mp-toggle">
             <input type="checkbox" checked={deleting} onChange={(e) => setDeleting(e.target.checked)} />
             <span className="mp-toggle-track" aria-hidden="true"><span /></span>
-            <span className="mp-toggle-text"><span>Borrar también los correos almacenados</span><small>Elimina <code>{info.database}</code>.</small></span>
+            <span className="mp-toggle-text"><span>Also delete stored mail</span><small>Elimina <code>{info.database}</code>.</small></span>
           </label>
           <button
             className="btn danger"
             disabled={busy}
             onClick={() => {
-              if (!confirm('¿Desinstalar Mailpit del panel? El servicio se detendrá.')) return
+              if (!confirm('Uninstall the panel\'s Mailpit? The service will stop.')) return
               void run(async () => {
                 await window.api.mailpit.uninstall(deleting)
                 onClose()
-              }, 'Mailpit desinstalado')
+              }, 'Mailpit uninstalled')
             }}
           >
-            <Glyph name="close" size={12} />Desinstalar Mailpit
+            <Glyph name="close" size={12} />Uninstall Mailpit
           </button>
         </section>
       </div>
 
       <footer>
-        <span className="mp-footer-note">Los cambios de PHP pueden pedir la contraseña de administrador.</span>
-        <button className="btn" onClick={onClose} disabled={busy}>Cerrar</button>
+        <span className="mp-footer-note">PHP changes may ask for the administrator password.</span>
+        <button className="btn" onClick={onClose} disabled={busy}>Close</button>
       </footer>
     </Modal>
   )

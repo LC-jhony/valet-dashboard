@@ -43,7 +43,7 @@ export const unprivilegedEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEn
  * @returns la ruta absoluta del script propiedad de root.
  */
 export async function installRootHelper(name: string, content: string): Promise<string> {
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error('Nombre de ayudante no válido: ' + name)
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error('Invalid helper name: ' + name)
   const target = join(ROOT_HELPER_DIR, name)
   const existing = await readFile(target, 'utf8').catch(() => null)
   if (existing === content) return target

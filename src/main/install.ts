@@ -39,7 +39,7 @@ export async function distro(): Promise<{ id: string; pm: Pm | null }> {
   const get = (k: string) => (t.match(new RegExp(`^${k}=(.*)$`, 'm'))?.[1] ?? '').replace(/"/g, '')
   const s = `${get('ID')} ${get('ID_LIKE')}`
   const pm: Pm | null = /debian|ubuntu/.test(s) ? 'apt' : /fedora|rhel|centos/.test(s) ? 'dnf' : /arch/.test(s) ? 'pacman' : null
-  return { id: get('PRETTY_NAME') || get('NAME') || get('ID') || 'desconocida', pm }
+  return { id: get('PRETTY_NAME') || get('NAME') || get('ID') || 'unknown', pm }
 }
 
 const has = async (c: string) => (await run('which', [c], true)).trim() !== ''
@@ -70,7 +70,7 @@ async function probeTools(): Promise<Record<string, boolean>> {
 }
 
 function normalizePkg(p: string): string {
-  if (typeof p !== 'string' || !PKG_RE.test(p)) throw new Error('Paquete de Composer no válido (vendor/nombre)')
+  if (typeof p !== 'string' || !PKG_RE.test(p)) throw new Error('Invalid Composer package (vendor/name)')
   return p.toLowerCase()
 }
 
@@ -110,7 +110,7 @@ export function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}
       current = null
       if (cancelRequested) {
         cancelRequested = false
-        return reject(new Error('Operación cancelada'))
+        return reject(new Error('Operation cancelled'))
       }
       if (code === 0) return resolve()
       const error = classify({ cmd, args, code, stderr, killed: timedOut, pm: opts.pm ?? null })
@@ -123,18 +123,18 @@ export function sh(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}
 /** Igual que {@link sh}, con la elevación que haya disponible. */
 export async function shElevated(emit: Emit, cmd: string, args: string[], opts: ShOptions = {}): Promise<void> {
   const how = await elevationCommand()
-  if (!how) throw new Error('No hay método de elevación: instala polkit (pkexec) o sudo con zenity')
+  if (!how) throw new Error('No elevation method: install polkit (pkexec) or sudo with zenity')
   return sh(emit, how.cmd, [...how.args, cmd, ...args], opts)
 }
 
 export async function runSteps(steps: Step[], emit: Emit) {
-  if (busy) throw new Error('Ya hay una operación en curso')
+  if (busy) throw new Error('An operation is already running')
   busy = true
   cancelRequested = false
   try {
     emit({ type: 'plan', steps: steps.map(({ id, label }) => ({ id, label })) })
     for (const s of steps) {
-      if (cancelRequested) throw new Error('Operación cancelada')
+      if (cancelRequested) throw new Error('Operation cancelled')
       emit({ type: 'step', id: s.id, status: 'run' })
       try {
         emit({ type: 'step', id: s.id, status: (await s.fn()) === 'skip' ? 'skip' : 'ok' })
@@ -163,10 +163,10 @@ function stamp() {
 
 async function backupSystem(emit: Emit): Promise<string> {
   const dest = join(APP_DIR, 'backups', stamp(), 'system')
-  if (!dest.startsWith(APP_DIR + sep)) throw new Error('Ruta de copia de seguridad no válida')
+  if (!dest.startsWith(APP_DIR + sep)) throw new Error('Invalid backup path')
   await mkdir(APP_DIR, { recursive: true })
   await elevated(BACKUP_HELPER, [dest, USER_NAME])
-  emit({ type: 'log', text: `Copia de seguridad: ${dest}\n` })
+  emit({ type: 'log', text: `Backup: ${dest}\n` })
   return dest
 }
 
@@ -180,39 +180,39 @@ async function writeHostsFile(emit: Emit): Promise<string> {
   const file = join(APP_DIR, 'hosts-generated')
   await mkdir(APP_DIR, { recursive: true })
   await writeFile(file, body, { mode: 0o600 })
-  emit({ type: 'log', text: `Entradas de hosts preparadas: ${names.size}\n` })
+  emit({ type: 'log', text: `Host entries prepared: ${names.size}\n` })
   return file
 }
 
 export async function patchValetDns(pkg: string, emit: Emit) {
   const [vendor, name] = pkg.split('/')
   const file = join(COMPOSER_HOME, 'vendor', vendor, name, 'cli', 'Valet', 'DnsMasq.php')
-  if (!existsSync(file)) throw new Error(`No se encontró ${file}. Composer no instaló el paquete esperado.`)
+  if (!existsSync(file)) throw new Error(`${file} was not found. Composer did not install the expected package.`)
   let src = await readFile(file, 'utf8')
   const original = src
   if ((src.match(/VALET_DASHBOARD_SAFE_DNS/g) ?? []).length >= 2) {
-    emit({ type: 'log', text: 'Parche DNS seguro ya aplicado.\n' })
+    emit({ type: 'log', text: 'Safe DNS patch already applied.\n' })
     return
   }
   const guard = `
         if (getenv('VALET_DASHBOARD_SAFE_DNS') === '1') {
-            info('Valet Dashboard: cambios de DNS de Valet omitidos.');
+            info('Valet Dashboard: Valet DNS changes skipped.');
             return;
         }
 `
   src = src.replace(/(public function install\([^)]*\)\s*\{\r?\n)/, (_m, pre: string) => `${pre}${guard}`)
   src = src.replace(/(public function uninstall\(\)\s*\{\r?\n)/, (_m, pre: string) => `${pre}${guard}`)
   if ((src.match(/VALET_DASHBOARD_SAFE_DNS/g) ?? []).length < 2) {
-    throw new Error('No se pudo aplicar el parche DNS seguro; se cancela antes de tocar la red.')
+    throw new Error('Could not apply the safe DNS patch; cancelling before touching the network.')
   }
   await writeFile(file, src)
   try {
     await run('php', ['-l', file])
   } catch (e) {
     await writeFile(file, original)
-    throw new Error(`El parche DNS dejó PHP inválido; se restauró el archivo: ${(e as Error).message}`)
+    throw new Error(`The DNS patch left PHP invalid; the file was restored: ${(e as Error).message}`)
   }
-  emit({ type: 'log', text: `Parche DNS seguro aplicado en ${file}\n` })
+  emit({ type: 'log', text: `Safe DNS patch applied to ${file}\n` })
 }
 
 async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
@@ -224,21 +224,21 @@ async function applyDns(emit: Emit, mode: DnsMode): Promise<'skip' | void> {
   const name = `valet-dashboard.${domain}`
   const resolved = (await run('getent', ['hosts', name], true)).trim()
   if (!resolved.includes('127.0.0.1')) {
-    throw new Error(`No se pudo verificar ${name}; revisa systemd-resolved o usa el modo hosts.`)
+    throw new Error(`Could not verify ${name}; check systemd-resolved or use hosts mode.`)
   }
-  emit({ type: 'log', text: `DNS verificado: ${name} -> 127.0.0.1\n` })
+  emit({ type: 'log', text: `DNS verified: ${name} -> 127.0.0.1\n` })
 }
 
 async function removeDns(emit: Emit) {
   const domain = await valetDomain().catch(() => 'test')
   const backupDir = join(APP_DIR, 'backups', stamp(), 'dns-remove')
   await elevated(DNS_HELPER, ['remove', domain, backupDir, '', USER_NAME])
-  emit({ type: 'log', text: 'DNS del dashboard eliminado.\n' })
+  emit({ type: 'log', text: 'Dashboard DNS removed.\n' })
 }
 
 async function requireElevation() {
   if (!(await detectElevation())) {
-    throw new Error('Falta un método de elevación: instala polkit (pkexec) o sudo con zenity')
+    throw new Error('An elevation method is missing: install polkit (pkexec) or sudo with zenity')
   }
 }
 
@@ -285,7 +285,7 @@ export async function checkEnv(): Promise<Env> {
 
   const portHogs = ports.usage
     .filter((u) => [80, 443].includes(u.port) && u.process !== 'nginx' && !(u.process === '—' && ports.nginxActive))
-    .map((u) => `${u.port}: ${u.process === '—' ? 'proceso de otro usuario' : u.process}`)
+    .map((u) => `${u.port}: ${u.process === '—' ? 'process of another user' : u.process}`)
 
   const isolated = existsSync(isolatedValet)
   const stockDns = valetDnsService ||
@@ -305,25 +305,25 @@ export async function checkEnv(): Promise<Env> {
   const oldValet = /cpriego\/valet-ubuntu|jmarcher\/valet-linux/.test(show)
   const illuminate13 = /^illuminate\/[^\s]+\s+13\./m.test(show)
   const conflictDetail = oldValet
-    ? 'Hay paquetes antiguos de Valet en el Composer global.'
+    ? 'There are old Valet packages in the global Composer.'
     : illuminate13
-      ? 'Illuminate 13 en el Composer global; Valet requiere Illuminate <=12.'
+      ? 'Illuminate 13 in the global Composer; Valet requires Illuminate <=12.'
       : ''
 
   const warnings: string[] = []
-  if (portHogs.length) warnings.push(`Puertos 80/443 ocupados: ${portHogs.join(', ')}.`)
-  if (conflictDetail) warnings.push(`${conflictDetail} Se usará un Composer aislado.`)
-  if (valetPath && !isolated) warnings.push(`Valet externo detectado en ${valetPath}; el instalador prefiere su propio Composer aislado.`)
-  if (!resolved) warnings.push('systemd-resolved no está activo; el modo DNS seguro no está disponible.')
-  if (!portFree) warnings.push(`El puerto ${DNS_PORT} está ocupado; se recomienda el modo hosts.`)
-  if (dnsmasqService) warnings.push(`El servicio dnsmasq del sistema está activo; el DNS seguro usa una instancia propia en ${DNS_PORT}.`)
-  if (stockDns) warnings.push('Hay restos del DNS clásico de Valet; el instalador no los modifica. Si el WiFi/DNS falla, restáuralos antes de continuar.')
-  if (!resolvConfOk) warnings.push('/etc/resolv.conf no apunta a systemd-resolved; revisa el DNS antes de usar el modo seguro.')
-  if (!d.pm) warnings.push('Distribución no soportada para instalar paquetes automáticamente; el panel seguirá con lo que ya esté instalado.')
+  if (portHogs.length) warnings.push(`Ports 80/443 in use: ${portHogs.join(', ')}.`)
+  if (conflictDetail) warnings.push(`${conflictDetail} An isolated Composer will be used.`)
+  if (valetPath && !isolated) warnings.push(`External Valet detected at ${valetPath}; the installer prefers its own isolated Composer.`)
+  if (!resolved) warnings.push('systemd-resolved is not running; safe DNS mode is not available.')
+  if (!portFree) warnings.push(`Port ${DNS_PORT} is in use; hosts mode is recommended.`)
+  if (dnsmasqService) warnings.push(`The system dnsmasq service is active; safe DNS uses its own instance on ${DNS_PORT}.`)
+  if (stockDns) warnings.push('There are leftovers from Valet classic DNS; the installer does not modify them. If Wi-Fi/DNS fails, restore them before continuing.')
+  if (!resolvConfOk) warnings.push('/etc/resolv.conf does not point to systemd-resolved; check DNS before using safe mode.')
+  if (!d.pm) warnings.push('Distribution not supported for automatic package installation; the panel will continue with what is already installed.')
 
   const php = await phpInfo().catch(() => null)
   if (php?.current && php.versions.length && !php.versions.includes(php.current)) {
-    warnings.push(`Valet usará PHP ${php.current}, pero no hay php${php.current}-fpm. Instala la versión que coincida.`)
+    warnings.push(`Valet will use PHP ${php.current}, but php${php.current}-fpm is missing. Install the matching version.`)
   }
 
   const recommendedDnsMode: DnsMode = resolved && portFree && resolvConfOk && (tools.dnsmasq || d.pm === 'apt') ? 'safe' : 'hosts'
@@ -375,7 +375,7 @@ function resolveParkDir(input: string): string {
       : value.startsWith('~/')
         ? join(HOME, value.slice(2))
         : value
-  if (!isAbsolute(out)) throw new Error('La carpeta de proyectos debe ser una ruta absoluta')
+  if (!isAbsolute(out)) throw new Error('The projects folder must be an absolute path')
   return out
 }
 
@@ -385,13 +385,13 @@ function resolveParkDir(input: string): string {
  */
 async function smokeTest(parkDir: string, emit: Emit): Promise<'skip' | void> {
   const dir = join(parkDir, 'valet-dashboard-health')
-  if (!dir.startsWith(parkDir + sep)) throw new Error('Ruta de prueba no válida')
+  if (!dir.startsWith(parkDir + sep)) throw new Error('Invalid test path')
   if (existsSync(dir)) {
-    emit({ type: 'log', text: `Ya existe ${dir}; se omite la prueba de humo.\n` })
+    emit({ type: 'log', text: `${dir} already exists; skipping the smoke test.\n` })
     return 'skip'
   }
   if (!(await has('curl'))) {
-    emit({ type: 'log', text: 'No hay curl: se omite la prueba de humo.\n' })
+    emit({ type: 'log', text: 'curl is missing: skipping the smoke test.\n' })
     return 'skip'
   }
   const domain = await valetDomain().catch(() => 'test')
@@ -407,19 +407,19 @@ async function smokeTest(parkDir: string, emit: Emit): Promise<'skip' | void> {
     ], true)).trim()
     const text = await readFile(body, 'utf8').catch(() => '')
     if (status === '200' && text.includes('valet-ok')) {
-      emit({ type: 'log', text: `Prueba de humo correcta: nginx y PHP-FPM responden en el puerto ${port}.\n` })
+      emit({ type: 'log', text: `Smoke test passed: nginx and PHP-FPM respond on port ${port}.\n` })
       return
     }
     if (status === '502') {
-      throw new Error('PHP-FPM no responde: revisa el socket de ~/.valet y el servicio php-fpm')
+      throw new Error('PHP-FPM is not responding: check the ~/.valet socket and the php-fpm service')
     }
     if (status === '404') {
-      throw new Error('nginx no encuentra el sitio de prueba: revisa la configuración de Valet')
+      throw new Error('nginx cannot find the test site: check the Valet configuration')
     }
     if (!status || status === '000' || status === '7') {
-      throw new Error(`nginx no responde en el puerto ${port}: revisa systemctl status nginx`)
+      throw new Error(`nginx is not responding on port ${port}: check systemctl status nginx`)
     }
-    throw new Error(`La prueba de humo devolvió HTTP ${status}`)
+    throw new Error(`The smoke test returned HTTP ${status}`)
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => '')
     await rm(body, { force: true }).catch(() => '')
@@ -427,7 +427,7 @@ async function smokeTest(parkDir: string, emit: Emit): Promise<'skip' | void> {
 }
 
 export async function startInstall(o: InstallOptions, emit: Emit) {
-  if (!o || typeof o !== 'object') throw new Error('Opciones de instalación no válidas')
+  if (!o || typeof o !== 'object') throw new Error('Invalid installation options')
   const pkg = normalizePkg(o.pkg)
   const dnsMode = normalizeDnsMode(o.dnsMode)
   const parkDir = resolveParkDir(o.parkDir)
@@ -438,120 +438,120 @@ export async function startInstall(o: InstallOptions, emit: Emit) {
   let preflight: Env | undefined
 
   await runSteps([
-    S('preflight', 'Comprobar requisitos, puertos y DNS', async () => {
+    S('preflight', 'Check requirements, ports and DNS', async () => {
       const info = await checkEnv()
       preflight = info
       const blocking = info.prereqs.filter((p) => !p.ok && p.blocking)
       if (hasBlocking(info.prereqs)) {
-        throw new Error(`Faltan requisitos: ${blocking.map((p) => p.label).join(', ')}. Sigue la guía de la pestaña Instalación.`)
+        throw new Error(`Missing requirements: ${blocking.map((p) => p.label).join(', ')}. Follow the guide in the Installation tab.`)
       }
       if (info.portHogs.length && !(o.stopApache && info.portHogs.every((h) => /apache/i.test(h)))) {
-        throw new Error(`Libera los puertos 80/443 antes de instalar: ${info.portHogs.join(', ')}`)
+        throw new Error(`Free ports 80/443 before installing: ${info.portHogs.join(', ')}`)
       }
       if (dnsMode === 'safe') {
-        if (!info.dns.resolvedActive) throw new Error('systemd-resolved no está activo; elige el modo hosts o actívalo antes.')
-        if (!info.dns.portFree) throw new Error(`El puerto ${DNS_PORT} está ocupado; elige el modo hosts.`)
-        if (!info.dns.dnsmasqBinary && info.pm !== 'apt') throw new Error('Falta dnsmasq; instálalo o usa el modo hosts.')
-        if (!info.dns.resolvConfOk) throw new Error('/etc/resolv.conf no apunta a systemd-resolved; elige el modo hosts.')
+        if (!info.dns.resolvedActive) throw new Error('systemd-resolved is not running; choose hosts mode or start it first.')
+        if (!info.dns.portFree) throw new Error(`Port ${DNS_PORT} is in use; choose hosts mode.`)
+        if (!info.dns.dnsmasqBinary && info.pm !== 'apt') throw new Error('dnsmasq is missing; install it or use hosts mode.')
+        if (!info.dns.resolvConfOk) throw new Error('/etc/resolv.conf does not point to systemd-resolved; choose hosts mode.')
       }
-      if (!info.elevation) throw new Error('Falta un método de elevación: instala polkit (pkexec) o sudo con zenity')
-      emit({ type: 'log', text: `Elevación: ${info.elevation === 'pkexec' ? 'polkit (pkexec)' : 'sudo con ventana de contraseña'}\n` })
+      if (!info.elevation) throw new Error('An elevation method is missing: install polkit (pkexec) or sudo with zenity')
+      emit({ type: 'log', text: `Elevation: ${info.elevation === 'pkexec' ? 'polkit (pkexec)' : 'sudo with password prompt'}\n` })
     }),
-    S('backup', 'Crear copia de seguridad', async () => {
+    S('backup', 'Create a backup', async () => {
       await prepareInstallScripts()
       await backupSystem(emit)
     }),
-    S('apache', 'Liberar los puertos 80/443 (Apache)', async () => {
+    S('apache', 'Free ports 80/443 (Apache)', async () => {
       if (!o.stopApache) return 'skip'
       const apache = await apacheInfo()
       const apacheHog = preflight?.portHogs.some((h) => /apache/i.test(h)) ?? false
       if (!apache.active || (!apacheHog && ![apache.http, apache.https].some((p) => p === 80 || p === 443))) return 'skip'
       await shElevated(emit, 'systemctl', ['disable', '--now', 'apache2'])
     }),
-    S('deps', 'Instalar dependencias del sistema', async () => {
+    S('deps', 'Install system dependencies', async () => {
       const php = await phpVersion()
       const pm = d.pm
       if (!pm) {
-        emit({ type: 'log', text: 'Sin gestor de paquetes compatible: se usan los paquetes ya instalados.\n' })
+        emit({ type: 'log', text: 'No compatible package manager: using the packages already installed.\n' })
         return 'skip'
       }
       const packages = requiredPackages(pm, php)
       const missing = await missingPackages(pm, packages)
       if (!missing.length) {
-        emit({ type: 'log', text: 'Dependencias del sistema ya instaladas.\n' })
+        emit({ type: 'log', text: 'System dependencies already installed.\n' })
         return 'skip'
       }
-      emit({ type: 'log', text: `Faltan ${missing.length} paquetes: ${missing.join(', ')}\n` })
+      emit({ type: 'log', text: `Missing ${missing.length} packages: ${missing.join(', ')}\n` })
       const update = updateArgs(pm)
       if (update) await shElevated(emit, update.cmd, update.args, { pm })
       const install = installArgs(pm, missing)
       await shElevated(emit, install.cmd, install.args, { pm })
       if (dnsMode === 'safe' && !existsSync('/usr/sbin/dnsmasq')) {
-        throw new Error('No se instaló dnsmasq-base; elige el modo hosts o instálalo a mano.')
+        throw new Error('dnsmasq-base was not installed; choose hosts mode or install it by hand.')
       }
       const after = await scanPorts().catch(() => null)
       const bound = after?.usage.filter((u) => [80, 443].includes(u.port)) ?? []
       if (bound.length) {
-        emit({ type: 'log', text: `Puertos en uso tras instalar: ${bound.map((u) => `${u.port} (${u.process})`).join(', ')}\n` })
+        emit({ type: 'log', text: `Ports in use after installing: ${bound.map((u) => `${u.port} (${u.process})`).join(', ')}\n` })
       }
     }),
-    S('helpers', 'Preparar ayudante de contraseña', async () => {
+    S('helpers', 'Prepare the password helper', async () => {
       await prepareHelpers()
       await prepareInstallScripts()
     }),
-    S('composer', 'Instalar Valet con Composer aislado', async () => {
+    S('composer', 'Install Valet with an isolated Composer', async () => {
       if (existsSync(join(COMPOSER_BIN, 'valet'))) {
-        emit({ type: 'log', text: 'Valet ya está en el Composer aislado.\n' })
+        emit({ type: 'log', text: 'Valet is already in the isolated Composer.\n' })
         return 'skip'
       }
       await sh(emit, 'composer', ['global', 'require', pkg, '--no-interaction', '--no-progress'], {
         env: composerEnv()
       })
-      if (!existsSync(join(COMPOSER_BIN, 'valet'))) throw new Error('Composer no creó el binario valet en el home aislado.')
+      if (!existsSync(join(COMPOSER_BIN, 'valet'))) throw new Error('Composer did not create the valet binary in the isolated home.')
     }),
-    S('patch', 'Aplicar protección DNS a Valet', async () => {
+    S('patch', 'Apply DNS protection to Valet', async () => {
       if (dnsMode === 'classic') return 'skip'
       await patchValetDns(pkg, emit)
     }),
-    S('dns-cleanup', 'Retirar el DNS seguro anterior', async () => {
+    S('dns-cleanup', 'Remove the previous safe DNS', async () => {
       if (dnsMode !== 'classic') return 'skip'
       await removeDns(emit)
     }),
-    S('install', 'Configurar nginx y PHP-FPM', async () => {
+    S('install', 'Configure nginx and PHP-FPM', async () => {
       await sh(emit, 'valet', ['install'], {
         extraEnv: { VALET_DASHBOARD_SAFE_DNS: dnsMode === 'classic' ? '0' : '1' }
       })
       try {
         await shElevated(emit, 'nginx', ['-t'])
       } catch (e) {
-        throw new Error(`La configuración de nginx no es válida: ${(e as Error).message}`)
+        throw new Error(`The nginx configuration is not valid: ${(e as Error).message}`)
       }
     }),
-    S('park', 'Registrar carpeta de proyectos', async () => {
+    S('park', 'Register the projects folder', async () => {
       await mkdir(parkDir, { recursive: true })
       await sh(emit, 'valet', ['park'], { cwd: parkDir })
     }),
-    S('dns', 'Configurar DNS de los sitios', () => applyDns(emit, dnsMode)),
-    S('verify', 'Verificar instalación', async () => {
+    S('dns', 'Configure the DNS for the sites', () => applyDns(emit, dnsMode)),
+    S('verify', 'Verify the installation', async () => {
       const version = (await runValet(['--version'], true)).trim()
-      if (!version) throw new Error('No se pudo ejecutar Valet después de la instalación.')
-      if (!existsSync('/usr/local/bin/valet')) throw new Error('Valet no creó /usr/local/bin/valet; revisa los permisos de /usr/local/bin.')
-      if (!(await active('nginx'))) throw new Error('nginx no está activo. Revisa si otro servicio ocupa los puertos 80/443.')
+      if (!version) throw new Error('Could not run Valet after the installation.')
+      if (!existsSync('/usr/local/bin/valet')) throw new Error('Valet did not create /usr/local/bin/valet; check the /usr/local/bin permissions.')
+      if (!(await active('nginx'))) throw new Error('nginx is not active. Check whether another service holds ports 80/443.')
       const php = await phpInfo().catch(() => null)
       if (php?.versions.length) {
         const fpmActive = (await Promise.all(php.versions.map((v) => active(`php${v}-fpm`)))).some(Boolean)
-        if (!fpmActive) throw new Error('No hay ningún PHP-FPM activo; revisa php-fpm con systemctl.')
+        if (!fpmActive) throw new Error('No PHP-FPM is active; check php-fpm with systemctl.')
       }
       if (dnsMode === 'safe') {
-        if (!(await active('valet-dashboard-dns'))) throw new Error('El servicio DNS seguro no está activo.')
-        if (!(await active('systemd-resolved'))) throw new Error('systemd-resolved no está activo.')
+        if (!(await active('valet-dashboard-dns'))) throw new Error('The safe DNS service is not active.')
+        if (!(await active('systemd-resolved'))) throw new Error('systemd-resolved is not running.')
       }
       const domain = await valetDomain().catch(() => 'test')
       const check = await run('getent', ['hosts', `valet-dashboard.${domain}`], true)
-      if (!check.includes('127.0.0.1')) throw new Error(`No se pudo resolver valet-dashboard.${domain}.`)
-      emit({ type: 'log', text: `Valet listo: ${version.split('\n')[0]}\n` })
+      if (!check.includes('127.0.0.1')) throw new Error(`Could not resolve valet-dashboard.${domain}.`)
+      emit({ type: 'log', text: `Valet ready: ${version.split('\n')[0]}\n` })
     }),
-    S('smoke', 'Probar un sitio de extremo a extremo', async () => { await smokeTest(parkDir, emit) })
+    S('smoke', 'Test a site end to end', async () => { await smokeTest(parkDir, emit) })
   ], emit)
 }
 
@@ -565,20 +565,20 @@ export async function startUninstall(pkgInput: string, emit: Emit) {
   await runSteps([
     {
       id: 'valet',
-      label: 'Desinstalar servicios de Valet',
+      label: 'Uninstall Valet services',
       fn: async () => {
         if (!isolatedValet) {
-          if (await has('valet')) throw new Error('Hay un Valet externo; no se desinstala automáticamente desde el dashboard.')
+          if (await has('valet')) throw new Error('There is an external Valet; it is not uninstalled automatically from the dashboard.')
           return 'skip'
         }
         await patchValetDns(pkg, emit)
         await sh(emit, 'valet', ['uninstall'], { extraEnv: { VALET_DASHBOARD_SAFE_DNS: '1' } })
       }
     },
-    { id: 'dns', label: 'Eliminar DNS del dashboard', fn: () => removeDns(emit) },
+    { id: 'dns', label: 'Remove dashboard DNS', fn: () => removeDns(emit) },
     {
       id: 'composer',
-      label: 'Quitar paquete de Composer aislado',
+      label: 'Remove the isolated Composer package',
       fn: async () => {
         const [vendor, name] = pkg.split('/')
         if (!existsSync(join(COMPOSER_HOME, 'vendor', vendor, name))) return 'skip'
@@ -591,14 +591,14 @@ export async function startUninstall(pkgInput: string, emit: Emit) {
 }
 
 export async function repairDns(mode: DnsMode, emit: Emit) {
-  if (mode !== 'safe' && mode !== 'hosts') throw new Error('Modo DNS no válido para reparación')
+  if (mode !== 'safe' && mode !== 'hosts') throw new Error('Invalid DNS mode for repair')
   await requireElevation()
   await prepareInstallScripts()
   await prepareHelpers()
   await runSteps([
     {
       id: 'dns',
-      label: mode === 'safe' ? 'Aplicar DNS seguro' : 'Sincronizar /etc/hosts',
+      label: mode === 'safe' ? 'Apply safe DNS' : 'Sync /etc/hosts',
       fn: () => applyDns(emit, mode)
     }
   ], emit)

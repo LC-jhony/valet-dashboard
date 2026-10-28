@@ -13,7 +13,7 @@ export const expandHome = (p: string) =>
  */
 export class UnsafePathError extends Error {
   constructor(label: string, root: string) {
-    super(`${label} debe estar dentro de ${root}`)
+    super(`${label} must be inside ${root}`)
     this.name = 'UnsafePathError'
   }
 }

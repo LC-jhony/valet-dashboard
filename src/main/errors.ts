@@ -44,26 +44,26 @@ export function classify(input: ErrorInput): ClassifiedError {
   const out = `${stderr}\n${input.message ?? ''}`
   const command = [input.cmd, ...(input.args ?? [])].join(' ')
   const generic: ClassifiedError = {
-    title: `Falló ${input.cmd}`,
-    detail: tail(stderr) || input.message || `El comando terminó con código ${input.code ?? 'desconocido'}.`,
-    hint: 'Revisa el registro de la instalación para ver la salida completa.',
+    title: `${input.cmd} failed`,
+    detail: tail(stderr) || input.message || `The command exited with code ${input.code ?? 'unknown'}.`,
+    hint: 'Check the installation log to see the full output.',
     commands: []
   }
 
   if (input.killed) {
     return {
-      title: 'El comando no terminó a tiempo',
-      detail: `${command} superó el tiempo máximo y se detuvo.`,
-      hint: 'Comprueba la conexión y vuelve a intentarlo. Si el gestor de paquetes sigue trabajando en segundo plano, espera a que termine antes de reintentar.',
+      title: 'The command did not finish in time',
+      detail: `${command} exceeded the time limit and was stopped.`,
+      hint: 'Check the connection and try again. If the package manager is still working in the background, wait for it to finish before retrying.',
       commands: input.pm === 'apt' ? ['ps aux | grep -E "apt|dpkg"'] : []
     }
   }
 
   if (/Could not get lock|dpkg frontend lock|Unable to acquire.*lock/i.test(out)) {
     return {
-      title: 'Otro gestor de paquetes está en uso',
-      detail: 'Hay otro proceso de apt, dpkg, dnf o pacman trabajando en este momento.',
-      hint: 'Espera a que termine o cierra la otra herramienta. No borres el archivo de bloqueo a ciegas.',
+      title: 'Another package manager is in use',
+      detail: 'Another apt, dpkg, dnf or pacman process is working right now.',
+      hint: 'Wait for it to finish or close the other tool. Do not delete the lock file blindly.',
       commands: input.pm === 'apt'
         ? ['ps aux | grep -E "apt|dpkg"', 'sudo systemctl status unattended-upgrades']
         : ['ps aux | grep -E "dnf|rpm|pacman"']
@@ -72,18 +72,18 @@ export function classify(input: ErrorInput): ClassifiedError {
 
   if (/No space left on device|No hay espacio/i.test(out)) {
     return {
-      title: 'Disco lleno',
-      detail: 'No queda espacio para descargar o escribir los paquetes.',
-      hint: 'Libera espacio y vuelve a pulsar Reparar instalación.',
+      title: 'Disk full',
+      detail: 'There is no space left to download or write the packages.',
+      hint: 'Free up space and press Repair installation again.',
       commands: ['df -h /', 'du -sh ~/.cache/* 2>/dev/null | sort -h | tail -10']
     }
   }
 
   if (/Temporary failure resolving|Could not resolve|Name or service not known|Network is unreachable/i.test(out)) {
     return {
-      title: 'Sin red o DNS roto',
-      detail: 'El gestor de paquetes no puede resolver el repositorio.',
-      hint: 'Revisa la conexión antes de reintentar. El modo Hosts del panel no arregla la salida a Internet.',
+      title: 'No network or broken DNS',
+      detail: 'The package manager cannot resolve the repository.',
+      hint: 'Check the connection before retrying. The panel\'s Hosts mode does not fix internet access.',
       commands: ['ping -c 1 1.1.1.1', ...updateCommand(input.pm ?? null)]
     }
   }
@@ -91,27 +91,27 @@ export function classify(input: ErrorInput): ClassifiedError {
   const locate = out.match(/Unable to locate package (\S+)/i)
   if (locate) {
     return {
-      title: `El paquete ${locate[1]} no está disponible`,
-      detail: 'Los índices están desactualizados o el paquete no existe en los repositorios configurados.',
-      hint: 'Actualiza los índices y comprueba el nombre del paquete para tu distribución.',
+      title: `Package ${locate[1]} is not available`,
+      detail: 'The indexes are out of date or the package does not exist in the configured repositories.',
+      hint: 'Update the indexes and check the package name for your distribution.',
       commands: [...updateCommand(input.pm ?? null), ...installCommand(input.pm ?? null, locate[1])]
     }
   }
 
   if (/Transaction check error|conflicting requests|file .* conflicts between attempted installs/i.test(out)) {
     return {
-      title: 'Conflicto entre paquetes',
+      title: 'Package conflict',
       detail: tail(stderr),
-      hint: 'Resuelve el conflicto con el gestor de paquetes y vuelve a intentarlo.',
+      hint: 'Resolve the conflict with the package manager and try again.',
       commands: input.pm === 'dnf' ? ['sudo dnf check', 'sudo dnf repoquery --duplicates'] : []
     }
   }
 
   if (/target not found/i.test(out)) {
     return {
-      title: 'Paquete no disponible en pacman',
+      title: 'Package not available in pacman',
       detail: tail(stderr),
-      hint: 'Actualiza los índices o instala el nombre equivalente para Arch.',
+      hint: 'Update the indexes or install the equivalent name for Arch.',
       commands: ['sudo pacman -Sy']
     }
   }
@@ -119,18 +119,18 @@ export function classify(input: ErrorInput): ClassifiedError {
   // Antes que 126/127: `sh` devuelve 127 también cuando el binario no existe.
   if (/No such file or directory|command not found/i.test(out)) {
     return {
-      title: `No se encontró ${input.cmd}`,
+      title: `${input.cmd} was not found`,
       detail: tail(stderr),
-      hint: 'Falta un binario que el instalador esperaba. Revisa la guía de requisitos.',
+      hint: 'A binary the installer expected is missing. Check the prerequisites guide.',
       commands: []
     }
   }
 
   if (input.code === 126 || input.code === 127) {
     return {
-      title: 'Autenticación cancelada',
-      detail: 'El diálogo de administrador se cerró sin escribir la contraseña.',
-      hint: 'Vuelve a intentarlo y autentica cuando aparezca la ventana del sistema.',
+      title: 'Authentication cancelled',
+      detail: 'The administrator dialog was closed without typing the password.',
+      hint: 'Try again and authenticate when the system window appears.',
       commands: []
     }
   }

@@ -176,10 +176,10 @@ export async function ensureLaravel(emit: Emit): Promise<InstalledLaravel> {
 
   const composer = await which('composer')
   if (!composer) {
-    throw new Error('No se encontró el instalador de Laravel ni Composer. Instala Composer desde la pestaña Instalación.')
+    throw new Error('Neither the Laravel installer nor Composer was found. Install Composer from the Installation tab.')
   }
 
-  emit({ type: 'stage', label: 'Instalando el instalador de Laravel…' })
+  emit({ type: 'stage', label: 'Installing the Laravel installer…' })
   const args = ['global', 'require', 'laravel/installer', '--no-interaction', '--no-progress']
   emit({ type: 'log', text: `$ composer ${formatCommand(args)}\n` })
   await new Promise<void>((resolve, reject) => {
@@ -205,20 +205,20 @@ export async function ensureLaravel(emit: Emit): Promise<InstalledLaravel> {
     child.stderr?.on('data', (b: Buffer) => { stderr += b.toString(); out(b) })
     child.on('error', (e) => {
       finish()
-      reject(new Error(`No se pudo ejecutar Composer: ${e.message}`))
+      reject(new Error(`Could not run Composer: ${e.message}`))
     })
     child.on('close', (code) => {
       finish()
-      if (cancelled) return reject(new Error('Creación cancelada.'))
-      if (timedOut) return reject(new Error('Composer superó el tiempo máximo y se detuvo.'))
+      if (cancelled) return reject(new Error('Creation cancelled.'))
+      if (timedOut) return reject(new Error('Composer exceeded the time limit and was stopped.'))
       if (code === 0) return resolve()
       const detail = stderr.trim().split('\n').filter(Boolean).slice(-3).join('\n')
-      reject(new Error(`No se pudo instalar el instalador de Laravel (código ${code}).${detail ? `\n${detail}` : ''}`))
+      reject(new Error(`Could not install the Laravel installer (code ${code}).${detail ? `\n${detail}` : ''}`))
     })
   })
 
   const after = await detectLaravel()
-  if (!after) throw new Error('El instalador de Laravel se instaló pero no se pudo ejecutar. Revisa la salida de Composer.')
+  if (!after) throw new Error('The Laravel installer was installed but could not be run. Check the Composer output.')
   return after
 }
 
@@ -287,15 +287,15 @@ export function runLaravelNew(
     child.stderr?.on('data', (b: Buffer) => { stderr += b.toString(); out(b) })
     child.on('error', (e) => {
       finish()
-      reject(new Error(`No se pudo ejecutar el instalador de Laravel: ${e.message}`))
+      reject(new Error(`Could not run the Laravel installer: ${e.message}`))
     })
     child.on('close', (code) => {
       finish()
-      if (cancelled) return reject(new Error('Creación cancelada. La carpeta del proyecto puede haber quedado incompleta.'))
-      if (timedOut) return reject(new Error('El instalador de Laravel superó el tiempo máximo y se detuvo.'))
+      if (cancelled) return reject(new Error('Creation cancelled. The project folder may have been left incomplete.'))
+      if (timedOut) return reject(new Error('The Laravel installer exceeded the time limit and was stopped.'))
       if (code === 0) return resolve()
       const detail = stderr.trim().split('\n').filter(Boolean).slice(-3).join('\n')
-      reject(new Error(`El instalador de Laravel terminó con código ${code}.${detail ? `\n${detail}` : ' Revisa el registro.'}`))
+      reject(new Error(`The Laravel installer exited with code ${code}.${detail ? `\n${detail}` : ' Check the log.'}`))
     })
   })
 }

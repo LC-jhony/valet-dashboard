@@ -30,7 +30,7 @@ export function CommandBlock({ commands }: { commands: string[] }) {
       <pre className="cmd" ref={ref}>{commands.join('\n')}</pre>
       <button type="button" className="btn ghost" onClick={copy}>
         <Glyph name={copied ? 'check' : 'terminal'} size={13} />
-        {copied ? 'Copiado' : 'Copiar'}
+        {copied ? 'Copied' : 'Copy'}
       </button>
     </div>
   )
@@ -49,9 +49,9 @@ export function PrereqsPanel({ env, onRecheck }: { env: Env; onRecheck: () => vo
       <div className="panel" id="install-prereqs">
         <div className="panel-head">
           <span className="panel-icon"><Icon name="folder_config_open" size={18} /></span>
-          <h2 className="panel-title">Requisitos previos</h2>
-          <span className="tag on"><Glyph name="check" size={11} />todo listo</span>
-          <button type="button" className="btn ghost" onClick={onRecheck}>Volver a comprobar</button>
+          <h2 className="panel-title">Prerequisites</h2>
+          <span className="tag on"><Glyph name="check" size={11} />all set</span>
+          <button type="button" className="btn ghost" onClick={onRecheck}>Check again</button>
         </div>
       </div>
     )
@@ -61,14 +61,14 @@ export function PrereqsPanel({ env, onRecheck }: { env: Env; onRecheck: () => vo
     <div className="panel" id="install-prereqs">
       <div className="panel-head">
         <span className="panel-icon"><Icon name="folder_config_open" size={18} /></span>
-        <h2 className="panel-title">Requisitos previos</h2>
+        <h2 className="panel-title">Prerequisites</h2>
         <span className={`tag ${blocking.length ? 'warn' : ''}`}>
-          {blocking.length ? `${blocking.length} bloquean la instalación` : `${pending.length} avisos`}
+          {blocking.length ? `${blocking.length} block the installation` : `${pending.length} warnings`}
         </span>
-        <button type="button" className="btn ghost" onClick={onRecheck}>Volver a comprobar</button>
+        <button type="button" className="btn ghost" onClick={onRecheck}>Check again</button>
       </div>
       <p className="panel-note">
-        Copia los comandos en una terminal. Cuando termines, pulsa <strong>Volver a comprobar</strong>.
+        Copy the commands into a terminal. When you are done, press <strong>Check again</strong>.
       </p>
       <ul className="prereq-list">
         {missing.map((p) => (
@@ -94,17 +94,17 @@ export function installBlockReason(
   env: Env | undefined,
   opts: { busy: boolean; portBlocked: boolean; dnsMode: string; safeAvailable: boolean }
 ): string {
-  if (!env) return 'Cargando el diagnóstico del sistema…'
-  if (opts.busy) return 'Hay una operación en curso.'
+  if (!env) return 'Loading the system diagnosis…'
+  if (opts.busy) return 'An operation is already running.'
   const blocking = env.prereqs.filter((p) => !p.ok && p.blocking)
   if (blocking.length) {
-    return `Faltan requisitos: ${blocking.map((p) => p.label).join(', ')}. Sigue la guía de requisitos previos.`
+    return `Missing requirements: ${blocking.map((p) => p.label).join(', ')}. Follow the prerequisites guide.`
   }
   if (opts.portBlocked) {
-    return 'Los puertos 80/443 están ocupados por otro proceso. Libéralos o marca la opción de detener Apache.'
+    return 'Ports 80/443 are taken by another process. Free them or tick the option to stop Apache.'
   }
   if (opts.dnsMode === 'safe' && !opts.safeAvailable) {
-    return 'El modo Seguro no está disponible en este sistema. Elige Hosts.'
+    return 'Safe mode is not available on this system. Choose Hosts.'
   }
   return ''
 }

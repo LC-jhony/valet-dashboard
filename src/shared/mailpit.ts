@@ -28,94 +28,94 @@ export interface MailpitField {
 }
 
 export const MAILPIT_GROUPS: MailpitGroup[] = [
-  { id: 'general', label: 'General', hint: 'Almacenamiento, límites, compresión y registro.' },
-  { id: 'ui', label: 'Web UI y API', hint: 'Dirección de escucha, seguridad del navegador, CORS y SpamAssassin.' },
-  { id: 'smtp', label: 'SMTP', hint: 'Servidor de correo entrante, TLS y listas de destinatarios.' },
-  { id: 'pop3', label: 'POP3', hint: 'Servidor POP3 opcional para clientes de correo.' },
-  { id: 'relay', label: 'Relay', hint: 'Reenvío de mensajes a un SMTP real mediante archivo YAML.' },
-  { id: 'forward', label: 'Forward', hint: 'Copia automática de mensajes a otro SMTP.' },
-  { id: 'chaos', label: 'Chaos', hint: 'Simulación de fallos y latencia para probar aplicaciones.' },
-  { id: 'tags', label: 'Etiquetas', hint: 'Clasificación automática por reglas X-Tag y remitente.' },
-  { id: 'metrics', label: 'Prometheus', hint: 'Métricas del servidor en /metrics.' },
-  { id: 'webhook', label: 'Webhook', hint: 'Notificación HTTP cuando llega un mensaje.' }
+  { id: 'general', label: 'General', hint: 'Storage, limits, compression and logging.' },
+  { id: 'ui', label: 'Web UI and API', hint: 'Listen address, browser security, CORS and SpamAssassin.' },
+  { id: 'smtp', label: 'SMTP', hint: 'Incoming mail server, TLS and recipient lists.' },
+  { id: 'pop3', label: 'POP3', hint: 'Optional POP3 server for mail clients.' },
+  { id: 'relay', label: 'Relay', hint: 'Forward messages to a real SMTP through a YAML file.' },
+  { id: 'forward', label: 'Forward', hint: 'Automatic copy of messages to another SMTP.' },
+  { id: 'chaos', label: 'Chaos', hint: 'Simulate failures and latency to test applications.' },
+  { id: 'tags', label: 'Tags', hint: 'Automatic classification by X-Tag rules and sender.' },
+  { id: 'metrics', label: 'Prometheus', hint: 'Server metrics at /metrics.' },
+  { id: 'webhook', label: 'Webhook', hint: 'HTTP notification when a message arrives.' }
 ]
 
 export const MAILPIT_FIELDS: MailpitField[] = [
   // General
-  { key: 'MP_DATABASE', group: 'general', label: 'Base de datos', kind: 'path', def: '~/.valet-dashboard/mailpit/mailpit.db', help: 'Archivo SQLite persistente. Por defecto se guarda junto al panel.' },
-  { key: 'MP_DISABLE_WAL', group: 'general', label: 'Desactivar WAL', kind: 'bool', help: 'Necesario si la base está en NFS o Samba.' },
-  { key: 'MP_DISABLE_VERSION_CHECK', group: 'general', label: 'Ocultar aviso de versión', kind: 'bool', def: 'true' },
-  { key: 'MP_DISABLE_AUTO_VACUUM', group: 'general', label: 'Desactivar auto-vacuum', kind: 'bool' },
-  { key: 'MP_COMPRESSION', group: 'general', label: 'Compresión', kind: 'select', def: '1', options: [
-    { value: '0', label: '0 · sin compresión' },
-    { value: '1', label: '1 · rápida (por defecto)' },
-    { value: '2', label: '2 · equilibrada' },
-    { value: '3', label: '3 · máxima' }
-  ], help: 'Nivel de compresión de los mensajes en la base de datos (0–3).' },
-  { key: 'MP_LABEL', group: 'general', label: 'Etiqueta del servidor', kind: 'text', placeholder: 'Desarrollo local' },
+  { key: 'MP_DATABASE', group: 'general', label: 'Database', kind: 'path', def: '~/.valet-dashboard/mailpit/mailpit.db', help: 'Persistent SQLite file. By default it is stored next to the panel.' },
+  { key: 'MP_DISABLE_WAL', group: 'general', label: 'Disable WAL', kind: 'bool', help: 'Needed if the database is on NFS or Samba.' },
+  { key: 'MP_DISABLE_VERSION_CHECK', group: 'general', label: 'Hide version notice', kind: 'bool', def: 'true' },
+  { key: 'MP_DISABLE_AUTO_VACUUM', group: 'general', label: 'Disable auto-vacuum', kind: 'bool' },
+  { key: 'MP_COMPRESSION', group: 'general', label: 'Compression', kind: 'select', def: '1', options: [
+    { value: '0', label: '0 · no compression' },
+    { value: '1', label: '1 · fast (default)' },
+    { value: '2', label: '2 · balanced' },
+    { value: '3', label: '3 · maximum' }
+  ], help: 'Message compression level in the database (0–3).' },
+  { key: 'MP_LABEL', group: 'general', label: 'Server label', kind: 'text', placeholder: 'Local development' },
   { key: 'MP_TENANT_ID', group: 'general', label: 'Tenant ID', kind: 'text', advanced: true },
-  { key: 'MP_MAX_MESSAGES', group: 'general', label: 'Máximo de mensajes', kind: 'number', def: '500', help: '0 desactiva el borrado automático de los más antiguos.' },
-  { key: 'MP_MAX_AGE', group: 'general', label: 'Antigüedad máxima', kind: 'duration', placeholder: '36h o 14d', help: 'En horas (h) o días (d). Vacío para no limitar por edad.' },
-  { key: 'MP_MAX_MESSAGE_SIZE', group: 'general', label: 'Tamaño máximo (MB)', kind: 'number', def: '50', help: 'Mensajes mayores se rechazan. 0 significa sin límite.' },
-  { key: 'MP_USE_MESSAGE_DATES', group: 'general', label: 'Usar fechas del mensaje', kind: 'bool', advanced: true },
-  { key: 'MP_IGNORE_DUPLICATE_IDS', group: 'general', label: 'Ignorar Message-ID duplicados', kind: 'bool', advanced: true },
-  { key: 'MP_LOG_FILE', group: 'general', label: 'Archivo de registro', kind: 'path', advanced: true },
-  { key: 'MP_QUIET', group: 'general', label: 'Modo silencioso', kind: 'bool', advanced: true },
-  { key: 'MP_VERBOSE', group: 'general', label: 'Modo detallado', kind: 'bool', advanced: true },
+  { key: 'MP_MAX_MESSAGES', group: 'general', label: 'Maximum messages', kind: 'number', def: '500', help: '0 disables automatic deletion of the oldest messages.' },
+  { key: 'MP_MAX_AGE', group: 'general', label: 'Maximum age', kind: 'duration', placeholder: '36h or 14d', help: 'In hours (h) or days (d). Empty to set no age limit.' },
+  { key: 'MP_MAX_MESSAGE_SIZE', group: 'general', label: 'Maximum size (MB)', kind: 'number', def: '50', help: 'Larger messages are rejected. 0 means no limit.' },
+  { key: 'MP_USE_MESSAGE_DATES', group: 'general', label: 'Use message dates', kind: 'bool', advanced: true },
+  { key: 'MP_IGNORE_DUPLICATE_IDS', group: 'general', label: 'Ignore duplicate Message-IDs', kind: 'bool', advanced: true },
+  { key: 'MP_LOG_FILE', group: 'general', label: 'Log file', kind: 'path', advanced: true },
+  { key: 'MP_QUIET', group: 'general', label: 'Quiet mode', kind: 'bool', advanced: true },
+  { key: 'MP_VERBOSE', group: 'general', label: 'Verbose mode', kind: 'bool', advanced: true },
 
   // UI y API
-  { key: 'MP_UI_BIND_ADDR', group: 'ui', label: 'Escucha UI/API', kind: 'text', def: '127.0.0.1:8025', help: 'Formato host:puerto. Usa 127.0.0.1 para no exponer el buzón a la red.' },
-  { key: 'MP_ALLOWED_HOSTS', group: 'ui', label: 'Hosts permitidos', kind: 'text', advanced: true, placeholder: 'mail.test,*.test' },
+  { key: 'MP_UI_BIND_ADDR', group: 'ui', label: 'UI/API listen address', kind: 'text', def: '127.0.0.1:8025', help: 'host:port format. Use 127.0.0.1 to avoid exposing the mailbox to the network.' },
+  { key: 'MP_ALLOWED_HOSTS', group: 'ui', label: 'Allowed hosts', kind: 'text', advanced: true, placeholder: 'mail.test,*.test' },
   { key: 'MP_WEBROOT', group: 'ui', label: 'Webroot', kind: 'text', advanced: true, placeholder: '/mailpit/' },
-  { key: 'MP_API_CORS', group: 'ui', label: 'CORS de la API', kind: 'text', advanced: true, placeholder: 'https://app.test' },
-  { key: 'MP_BLOCK_REMOTE_CSS_AND_FONTS', group: 'ui', label: 'Bloquear CSS y fuentes remotas', kind: 'bool', help: 'Evita peticiones externas al abrir un correo. Puede romper plantillas.' },
-  { key: 'MP_ALLOW_INTERNAL_HTTP_REQUESTS', group: 'ui', label: 'Permitir peticiones HTTP internas', kind: 'bool', advanced: true },
-  { key: 'MP_DISABLE_LINK_CHECK_RATE_LIMIT', group: 'ui', label: 'Sin límite en link check', kind: 'bool', advanced: true },
-  { key: 'MP_ENABLE_SPAMASSASSIN', group: 'ui', label: 'SpamAssassin', kind: 'text', placeholder: '127.0.0.1:783 o postmark', help: 'Dirección de spamd o «postmark» para el servicio alojado. Vacío para desactivarlo.' },
-  { key: 'MP_ALLOW_UNTRUSTED_TLS', group: 'ui', label: 'Aceptar TLS no confiable', kind: 'bool', advanced: true, help: 'Solo para link check y capturas contra destinos con certificados propios.' },
-  { key: 'MP_DISABLE_HTTP_COMPRESSION', group: 'ui', label: 'Desactivar compresión HTTP', kind: 'bool', advanced: true },
-  { key: 'MP_HIDE_DELETE_ALL_BUTTON', group: 'ui', label: 'Ocultar «Vaciar buzón»', kind: 'bool', advanced: true },
-  { key: 'MP_SEND_API_AUTH_ACCEPT_ANY', group: 'ui', label: 'Send API acepta cualquier credencial', kind: 'bool', advanced: true },
+  { key: 'MP_API_CORS', group: 'ui', label: 'API CORS', kind: 'text', advanced: true, placeholder: 'https://app.test' },
+  { key: 'MP_BLOCK_REMOTE_CSS_AND_FONTS', group: 'ui', label: 'Block remote CSS and fonts', kind: 'bool', help: 'Prevents external requests when opening a mail. It can break templates.' },
+  { key: 'MP_ALLOW_INTERNAL_HTTP_REQUESTS', group: 'ui', label: 'Allow internal HTTP requests', kind: 'bool', advanced: true },
+  { key: 'MP_DISABLE_LINK_CHECK_RATE_LIMIT', group: 'ui', label: 'No link check rate limit', kind: 'bool', advanced: true },
+  { key: 'MP_ENABLE_SPAMASSASSIN', group: 'ui', label: 'SpamAssassin', kind: 'text', placeholder: '127.0.0.1:783 or postmark', help: 'spamd address, or “postmark” for the hosted service. Empty to disable it.' },
+  { key: 'MP_ALLOW_UNTRUSTED_TLS', group: 'ui', label: 'Accept untrusted TLS', kind: 'bool', advanced: true, help: 'Only for link checks and screenshots against targets with their own certificates.' },
+  { key: 'MP_DISABLE_HTTP_COMPRESSION', group: 'ui', label: 'Disable HTTP compression', kind: 'bool', advanced: true },
+  { key: 'MP_HIDE_DELETE_ALL_BUTTON', group: 'ui', label: 'Hide “Empty mailbox”', kind: 'bool', advanced: true },
+  { key: 'MP_SEND_API_AUTH_ACCEPT_ANY', group: 'ui', label: 'Send API accepts any credentials', kind: 'bool', advanced: true },
 
   // SMTP
-  { key: 'MP_SMTP_BIND_ADDR', group: 'smtp', label: 'Escucha SMTP', kind: 'text', def: '127.0.0.1:1025', help: 'Formato host:puerto. Los clientes de correo y Laravel se conectan aquí.' },
-  { key: 'MP_SMTP_AUTH_ACCEPT_ANY', group: 'smtp', label: 'Aceptar cualquier credencial', kind: 'bool' },
-  { key: 'MP_SMTP_AUTH_ALLOW_INSECURE', group: 'smtp', label: 'Permitir auth sin TLS', kind: 'bool', advanced: true },
-  { key: 'MP_SMTP_REQUIRE_STARTTLS', group: 'smtp', label: 'Exigir STARTTLS', kind: 'bool', help: 'Requiere certificado TLS configurado.' },
-  { key: 'MP_SMTP_REQUIRE_TLS', group: 'smtp', label: 'Exigir TLS directo', kind: 'bool', advanced: true },
-  { key: 'MP_SMTP_STRICT_RFC_HEADERS', group: 'smtp', label: 'Cabeceras RFC estrictas', kind: 'bool', advanced: true },
-  { key: 'MP_SMTP_MAX_RECIPIENTS', group: 'smtp', label: 'Máximo de destinatarios', kind: 'number', advanced: true },
-  { key: 'MP_SMTP_ALLOWED_RECIPIENTS', group: 'smtp', label: 'Destinatarios permitidos', kind: 'text', advanced: true, placeholder: 'regex o dominio' },
-  { key: 'MP_SMTP_IGNORE_REJECTED_RECIPIENTS', group: 'smtp', label: 'Ignorar destinatarios rechazados', kind: 'bool', advanced: true },
-  { key: 'MP_SMTP_DISABLE_RDNS', group: 'smtp', label: 'Desactivar rDNS', kind: 'bool', advanced: true },
+  { key: 'MP_SMTP_BIND_ADDR', group: 'smtp', label: 'SMTP listen address', kind: 'text', def: '127.0.0.1:1025', help: 'host:port format. Mail clients and Laravel connect here.' },
+  { key: 'MP_SMTP_AUTH_ACCEPT_ANY', group: 'smtp', label: 'Accept any credentials', kind: 'bool' },
+  { key: 'MP_SMTP_AUTH_ALLOW_INSECURE', group: 'smtp', label: 'Allow auth without TLS', kind: 'bool', advanced: true },
+  { key: 'MP_SMTP_REQUIRE_STARTTLS', group: 'smtp', label: 'Require STARTTLS', kind: 'bool', help: 'Requires a configured TLS certificate.' },
+  { key: 'MP_SMTP_REQUIRE_TLS', group: 'smtp', label: 'Require direct TLS', kind: 'bool', advanced: true },
+  { key: 'MP_SMTP_STRICT_RFC_HEADERS', group: 'smtp', label: 'Strict RFC headers', kind: 'bool', advanced: true },
+  { key: 'MP_SMTP_MAX_RECIPIENTS', group: 'smtp', label: 'Maximum recipients', kind: 'number', advanced: true },
+  { key: 'MP_SMTP_ALLOWED_RECIPIENTS', group: 'smtp', label: 'Allowed recipients', kind: 'text', advanced: true, placeholder: 'regex or domain' },
+  { key: 'MP_SMTP_IGNORE_REJECTED_RECIPIENTS', group: 'smtp', label: 'Ignore rejected recipients', kind: 'bool', advanced: true },
+  { key: 'MP_SMTP_DISABLE_RDNS', group: 'smtp', label: 'Disable rDNS', kind: 'bool', advanced: true },
 
   // POP3
-  { key: 'MP_POP3_BIND_ADDR', group: 'pop3', label: 'Escucha POP3', kind: 'text', def: '127.0.0.1:1110' },
+  { key: 'MP_POP3_BIND_ADDR', group: 'pop3', label: 'POP3 listen address', kind: 'text', def: '127.0.0.1:1110' },
 
   // Relay / forward
-  { key: 'MP_SMTP_RELAY_ALL', group: 'relay', label: 'Relay de todos los mensajes', kind: 'bool', help: 'Reenvía todo el correo al SMTP configurado en el YAML de relay.' },
-  { key: 'MP_SMTP_RELAY_MATCHING', group: 'relay', label: 'Relay solo a estos destinatarios', kind: 'text', advanced: true, placeholder: '@ejemplo\\.test$', help: 'Expresión regular que se aplica a los destinatarios. No se puede combinar con «Relay de todos los mensajes».' },
-  { key: 'MP_SMTP_RELAY_CONFIG', group: 'relay', label: 'Archivo de relay', kind: 'path', advanced: true },
-  { key: 'MP_SMTP_FORWARD_CONFIG', group: 'forward', label: 'Archivo de forward', kind: 'path', advanced: true },
+  { key: 'MP_SMTP_RELAY_ALL', group: 'relay', label: 'Relay all messages', kind: 'bool', help: 'Forwards all mail to the SMTP configured in the relay YAML.' },
+  { key: 'MP_SMTP_RELAY_MATCHING', group: 'relay', label: 'Relay only to these recipients', kind: 'text', advanced: true, placeholder: '@example\\.test$', help: 'Regular expression applied to recipients. It cannot be combined with “Relay all messages”.' },
+  { key: 'MP_SMTP_RELAY_CONFIG', group: 'relay', label: 'Relay file', kind: 'path', advanced: true },
+  { key: 'MP_SMTP_FORWARD_CONFIG', group: 'forward', label: 'Forward file', kind: 'path', advanced: true },
 
   // Chaos
-  { key: 'MP_ENABLE_CHAOS', group: 'chaos', label: 'Activar chaos', kind: 'bool' },
-  { key: 'MP_CHAOS_TRIGGERS', group: 'chaos', label: 'Disparadores', kind: 'text', advanced: true, placeholder: 'Sender:451:50,Recipient:451:20', help: 'etapa:código:probabilidad separado por comas. Etapas: Sender, Recipient y Authentication; la probabilidad va de 0 a 100. Rellenarlo activa chaos aunque no marques la casilla.' },
+  { key: 'MP_ENABLE_CHAOS', group: 'chaos', label: 'Enable chaos', kind: 'bool' },
+  { key: 'MP_CHAOS_TRIGGERS', group: 'chaos', label: 'Triggers', kind: 'text', advanced: true, placeholder: 'Sender:451:50,Recipient:451:20', help: 'stage:code:probability separated by commas. Stages: Sender, Recipient and Authentication; probability goes from 0 to 100. Filling it in enables chaos even if the box is unchecked.' },
 
   // Etiquetas
-  { key: 'MP_TAG', group: 'tags', label: 'Etiquetas por filtro', kind: 'text', placeholder: 'pedidos=from:.*@tienda.test', help: 'Pares Etiqueta=coincidencia separados por espacios; no aplica una etiqueta a todo. Para varias reglas largas usa el archivo de etiquetas.' },
-  { key: 'MP_TAGS_CONFIG', group: 'tags', label: 'Archivo de etiquetas', kind: 'path', advanced: true },
-  { key: 'MP_TAGS_TITLE_CASE', group: 'tags', label: 'Etiquetas en Title Case', kind: 'bool', advanced: true },
-  { key: 'MP_TAGS_DISABLE', group: 'tags', label: 'Desactivar etiquetas', kind: 'text', advanced: true, placeholder: 'plus-addresses,x-tags', help: 'Lista separada por comas de reglas de auto-etiquetado que se desactivan.' },
-  { key: 'MP_TAGS_USERNAME', group: 'tags', label: 'Etiqueta por usuario', kind: 'bool', advanced: true, help: 'Añade una etiqueta con el usuario autenticado que envió el mensaje.' },
+  { key: 'MP_TAG', group: 'tags', label: 'Tags by filter', kind: 'text', placeholder: 'orders=from:.*@shop.test', help: 'Tag=match pairs separated by spaces; it does not tag everything. For several long rules use the tags file.' },
+  { key: 'MP_TAGS_CONFIG', group: 'tags', label: 'Tags file', kind: 'path', advanced: true },
+  { key: 'MP_TAGS_TITLE_CASE', group: 'tags', label: 'Tags in Title Case', kind: 'bool', advanced: true },
+  { key: 'MP_TAGS_DISABLE', group: 'tags', label: 'Disable tags', kind: 'text', advanced: true, placeholder: 'plus-addresses,x-tags', help: 'Comma-separated list of auto-tagging rules to disable.' },
+  { key: 'MP_TAGS_USERNAME', group: 'tags', label: 'Tag by user', kind: 'bool', advanced: true, help: 'Adds a tag with the authenticated user who sent the message.' },
 
   // Métricas
-  { key: 'MP_ENABLE_PROMETHEUS', group: 'metrics', label: 'Activar Prometheus', kind: 'text', placeholder: 'true o 0.0.0.0:9090', help: 'true sirve /metrics en el puerto de la UI; una dirección host:puerto abre un servidor aparte.' },
+  { key: 'MP_ENABLE_PROMETHEUS', group: 'metrics', label: 'Enable Prometheus', kind: 'text', placeholder: 'true or 0.0.0.0:9090', help: 'true serves /metrics on the UI port; a host:port address opens a separate server.' },
 
   // Webhook
-  { key: 'MP_WEBHOOK_URL', group: 'webhook', label: 'URL del webhook', kind: 'text', placeholder: 'https://app.test/hooks/mailpit' },
-  { key: 'MP_WEBHOOK_LIMIT', group: 'webhook', label: 'Límite de webhooks por segundo', kind: 'number', def: '1', advanced: true, help: '1 permite como máximo una petición por segundo; 0 desactiva el límite.' },
-  { key: 'MP_WEBHOOK_DELAY', group: 'webhook', label: 'Retardo (segundos)', kind: 'number', def: '0', advanced: true }
+  { key: 'MP_WEBHOOK_URL', group: 'webhook', label: 'Webhook URL', kind: 'text', placeholder: 'https://app.test/hooks/mailpit' },
+  { key: 'MP_WEBHOOK_LIMIT', group: 'webhook', label: 'Webhook limit per second', kind: 'number', def: '1', advanced: true, help: '1 allows at most one request per second; 0 disables the limit.' },
+  { key: 'MP_WEBHOOK_DELAY', group: 'webhook', label: 'Delay (seconds)', kind: 'number', def: '0', advanced: true }
 ]
 
 export const MAILPIT_FIELD_MAP: Record<string, MailpitField> = Object.fromEntries(
@@ -247,7 +247,7 @@ export interface MailpitApi {
 export const MAILPIT_UNIT = 'valet-dashboard-mailpit.service'
 
 /** Aviso compartido: Mailpit no abre POP3 sin credenciales. */
-export const MAILPIT_POP3_WARNING = 'POP3 no está disponible: Mailpit exige autenticación POP3 para activarlo.'
+export const MAILPIT_POP3_WARNING = 'POP3 is not available: Mailpit requires POP3 authentication to enable it.'
 
 /** Valores iniciales de las opciones, aplicando los defaults del esquema. */
 export function mailpitDefaultOptions(): Record<string, string> {

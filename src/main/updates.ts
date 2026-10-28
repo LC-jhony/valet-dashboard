@@ -241,10 +241,10 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
 
   const warnings: string[] = []
   if (composerPath && !composerManaged && composerJson === null) {
-    warnings.push('No se pudo consultar la última versión de Composer.')
+    warnings.push('Could not fetch the latest Composer version.')
   }
-  if (isNvm && nodeJson === null) warnings.push('No se pudo consultar la última versión LTS de Node.')
-  if (valet && packagistJson === null) warnings.push('No se pudo consultar la última versión de Valet.')
+  if (isNvm && nodeJson === null) warnings.push('Could not fetch the latest Node LTS version.')
+  if (valet && packagistJson === null) warnings.push('Could not fetch the latest Valet version.')
 
   const items: UpdateItem[] = []
 
@@ -254,7 +254,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
     if (!d.pm) {
       return {
         id, label, current, latest: '', available: false, source: 'none', packages: [],
-        blocked: 'Sin gestor de paquetes compatible: el panel no puede comprobar ni actualizar este programa.',
+        blocked: 'No compatible package manager: the panel cannot check or upgrade this program.',
         needsElevation: false, commands: []
       }
     }
@@ -271,7 +271,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
       source: 'system',
       packages,
       blocked: packages.length > 0 && !elevation
-        ? 'La actualización pide contraseña y no hay forma de pedirla (instala pkexec o sudo con zenity).'
+        ? 'Upgrading needs a password and there is no way to ask for it (install pkexec, or sudo with zenity).'
         : '',
       needsElevation: true,
       commands: packages.length > 0 && !elevation && command
@@ -302,7 +302,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
         source: 'composer',
         packages: [],
         blocked: !canWrite && !elevation
-          ? 'Necesita escribir en /usr/local/bin y no hay forma de pedir la contraseña.'
+          ? 'It needs to write to /usr/local/bin and there is no way to ask for the password.'
           : '',
         needsElevation: !canWrite,
         commands: !canWrite && !elevation
@@ -322,7 +322,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
       available: isNewer(latest, valet),
       source: isolated ? 'composer' : 'none',
       packages: isolated ? [VALET_PKG] : [],
-      blocked: isolated ? '' : 'Está instalado fuera del panel; actualízalo con el método con el que lo instalaste.',
+      blocked: isolated ? '' : 'It is installed outside the panel; upgrade it the same way you installed it.',
       needsElevation: false,
       commands: []
     })
@@ -339,7 +339,7 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
         available: isNewer(latest, node),
         source: 'none',
         packages: [],
-        blocked: 'Lo gestiona nvm; el panel no lo cambia.',
+        blocked: 'Managed by nvm; the panel does not change it.',
         needsElevation: false,
         commands: ['nvm install --lts', 'nvm alias default lts/*']
       })
@@ -363,22 +363,22 @@ export async function checkUpdates(force = false): Promise<UpdatesInfo> {
  * eventos van por `install:event`, así que pasos y registro se reutilizan.
  */
 export async function runUpdate(id: UpdateId, emit: Emit): Promise<void> {
-  if (!KNOWN.includes(id)) throw new Error('Programa desconocido.')
+  if (!KNOWN.includes(id)) throw new Error('Unknown program.')
   const info = await checkUpdates(true)
   const item = info.items.find((i) => i.id === id)
-  if (!item) throw new Error('Ese programa no está instalado en este equipo.')
+  if (!item) throw new Error('That program is not installed on this machine.')
   if (item.blocked) throw new Error(item.blocked)
-  if (!item.available) throw new Error(`${item.label} ya está al día.`)
+  if (!item.available) throw new Error(`${item.label} is already up to date.`)
 
   const d = await distro()
   const steps: Step[] = []
 
   if (id === 'composer') {
     const path = await which('composer')
-    if (!path) throw new Error('No se encontró el binario de Composer.')
+    if (!path) throw new Error('The Composer binary was not found.')
     steps.push({
       id: 'update',
-      label: 'Actualizar Composer',
+      label: 'Upgrade Composer',
       fn: async () => {
         if (item.needsElevation) {
           await shElevated(emit, 'env', ['COMPOSER_ALLOW_SUPERUSER=1', path, 'self-update', '--no-interaction'])
@@ -390,32 +390,32 @@ export async function runUpdate(id: UpdateId, emit: Emit): Promise<void> {
   } else if (id === 'valet') {
     steps.push({
       id: 'update',
-      label: 'Actualizar Valet con Composer',
+      label: 'Upgrade valet with Composer',
       fn: () => sh(emit, 'composer', ['global', 'update', VALET_PKG, '--no-interaction'], { env: composerEnv() })
     })
     // El paquete nuevo trae el DnsMasq.php original: sin el parche, Valet
     // volvería a tocar la red en la siguiente orden.
     steps.push({
       id: 'patch',
-      label: 'Volver a aplicar el DNS seguro',
+      label: 'Reapply safe DNS',
       fn: async () => { await patchValetDns(VALET_PKG, emit) }
     })
   } else {
-    if (!d.pm) throw new Error('No hay un gestor de paquetes compatible.')
+    if (!d.pm) throw new Error('There is no compatible package manager.')
     const up = upgradeArgs(d.pm, item.packages)
     steps.push({
       id: 'update',
-      label: `Actualizar ${item.label}`,
+      label: `Upgrade ${item.label}`,
       fn: () => shElevated(emit, up.cmd, up.args, { pm: d.pm })
     })
   }
 
   steps.push({
     id: 'verify',
-    label: 'Comprobar la versión instalada',
+    label: 'Check the installed version',
     fn: async () => {
       const version = await readVersion(id)
-      emit({ type: 'log', text: `${item.label}: ${version || 'sin versión'}\n` })
+      emit({ type: 'log', text: `${item.label}: ${version || 'no version'}\n` })
     }
   })
 

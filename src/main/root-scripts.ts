@@ -9,22 +9,22 @@
  */
 export const SAFE_DEST_FN = String.raw`safe_dest() {
   local dest="$1" owner="$2" home backups parent real
-  [ -n "$dest" ] || fail "falta el destino de la copia"
-  [ -n "$owner" ] || fail "falta el propietario de la copia"
+  [ -n "$dest" ] || fail "missing backup destination"
+  [ -n "$owner" ] || fail "missing backup owner"
   home="$(readlink -f "$(getent passwd "$owner" | cut -d: -f6)" 2>/dev/null)"
-  [ -n "$home" ] || fail "no se pudo resolver el home de $owner"
+  [ -n "$home" ] || fail "could not resolve the home of $owner"
   backups="$home/.valet-dashboard/backups"
   parent="$(dirname "$dest")"
   mkdir -p "$parent"
   real="$(readlink -f "$parent")"
   case "$real" in
     "$backups"/?*) ;;
-    *) fail "destino de copia fuera del panel: $dest" ;;
+    *) fail "backup destination outside the panel: $dest" ;;
   esac
   # Las rutas ya están resueltas: ceder la propiedad aquí no puede tocar /etc.
   if [ -d "$backups" ]; then chown "$owner" "$backups"; fi
   chown "$owner" "$real"
-  mkdir -m 0700 "$dest" || fail "el destino de copia ya existe: $dest"
+  mkdir -m 0700 "$dest" || fail "the backup destination already exists: $dest"
   chown "$owner" "$dest"
 }`
 
@@ -42,7 +42,7 @@ HOSTS_END="# END VALET DASHBOARD"
 log() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || fail "se requiere root"
+[ "$(id -u)" -eq 0 ] || fail "root is required"
 
 ${SAFE_DEST_FN}
 
@@ -82,10 +82,10 @@ remove_safe() {
 }
 
 install_safe() {
-  [ -n "$TLD" ] || fail "TLD vacío"
-  [[ "$TLD" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || fail "TLD no válido"
-  systemctl is-active --quiet systemd-resolved || fail "systemd-resolved no está activo"
-  [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq no está instalado"
+  [ -n "$TLD" ] || fail "empty TLD"
+  [[ "$TLD" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || fail "invalid TLD"
+  systemctl is-active --quiet systemd-resolved || fail "systemd-resolved is not running"
+  [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq is not installed"
 
   remove_safe
   remove_hosts_block
@@ -122,26 +122,26 @@ DNS=127.0.0.1:5354
 Domains=~$TLD
 EOF
 
-  /usr/sbin/dnsmasq --test --conf-file=/etc/valet-dashboard/dnsmasq.conf >/dev/null || { remove_safe; fail "dnsmasq rechazó la configuración"; }
-  systemctl daemon-reload || { remove_safe; fail "No se pudo recargar systemd"; }
-  systemctl enable --now valet-dashboard-dns.service || { remove_safe; fail "No se pudo iniciar el DNS seguro"; }
-  systemctl restart systemd-resolved || { remove_safe; fail "No se pudo reiniciar systemd-resolved"; }
+  /usr/sbin/dnsmasq --test --conf-file=/etc/valet-dashboard/dnsmasq.conf >/dev/null || { remove_safe; fail "dnsmasq rejected the configuration"; }
+  systemctl daemon-reload || { remove_safe; fail "Could not reload systemd"; }
+  systemctl enable --now valet-dashboard-dns.service || { remove_safe; fail "Could not start safe DNS"; }
+  systemctl restart systemd-resolved || { remove_safe; fail "Could not restart systemd-resolved"; }
   sleep 1
   if ! getent hosts "valet-dashboard.$TLD" | grep -q '127.0.0.1'; then
     remove_safe
-    fail "No se pudo resolver valet-dashboard.$TLD; se restauró la configuración"
+    fail "Could not resolve valet-dashboard.$TLD; the configuration was restored"
   fi
   if [ "$INTERNET_BEFORE" -eq 1 ] && ! getent hosts example.com >/dev/null 2>&1; then
     remove_safe
-    fail "El DNS general dejó de resolver; se restauró la configuración"
+    fail "General DNS stopped resolving; the configuration was restored"
   fi
   log "DNS seguro activo: *.$TLD -> 127.0.0.1:5354"
 }
 
 install_hosts() {
-  [ -f "$HOSTS_FILE" ] || fail "No existe el archivo de hosts"
+  [ -f "$HOSTS_FILE" ] || fail "The hosts file does not exist"
   if grep -Evq '^(127\.0\.0\.1 [A-Za-z0-9.-]+|#|$)' "$HOSTS_FILE"; then
-    fail "El archivo de hosts contiene líneas no válidas"
+    fail "The hosts file contains invalid lines"
   fi
   remove_safe
   [ -f /etc/hosts ] || : > /etc/hosts
@@ -159,13 +159,13 @@ install_hosts() {
   } >> "$tmp"
   install -m 644 "$tmp" /etc/hosts
   rm -f "$tmp"
-  log "Entradas de hosts actualizadas"
+  log "Host entries updated"
 }
 
 remove_all() {
   remove_safe
   remove_hosts_block
-  log "DNS del dashboard eliminado"
+  log "Dashboard DNS removed"
 }
 
 backup
@@ -174,7 +174,7 @@ case "$MODE" in
   safe) install_safe ;;
   hosts) install_hosts ;;
   remove) remove_all ;;
-  *) fail "Modo desconocido: $MODE" ;;
+  *) fail "Unknown mode: $MODE" ;;
 esac
 `
 
@@ -187,7 +187,7 @@ OWNER="$2"
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [ -n "$DEST" ] && [ -n "$OWNER" ] || exit 1
-[ "$(id -u)" -eq 0 ] || fail "se requiere root"
+[ "$(id -u)" -eq 0 ] || fail "root is required"
 
 ${SAFE_DEST_FN}
 

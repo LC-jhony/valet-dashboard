@@ -52,10 +52,10 @@ function hasKey(source: string, key: string): boolean {
 
 /** Escribe la configuración SMTP de Mailpit en el .env de un sitio Laravel. */
 export async function configureEnv(siteName: string): Promise<MailpitProjectEnvResult> {
-  if (typeof siteName !== 'string' || !siteName.trim()) throw new Error('Elige un sitio')
+  if (typeof siteName !== 'string' || !siteName.trim()) throw new Error('Choose a site')
   const sites = await listSites()
   const site = sites.find((s) => s.name === siteName)
-  if (!site) throw new Error(`Sitio desconocido: ${siteName}`)
+  if (!site) throw new Error(`Unknown site: ${siteName}`)
   const file = join(site.path, '.env')
   let original: string | null = null
   if (existsSync(file)) {
@@ -63,7 +63,7 @@ export async function configureEnv(siteName: string): Promise<MailpitProjectEnvR
   } else {
     const example = join(site.path, '.env.example')
     if (!existsSync(example)) {
-      throw new Error(`No existe .env ni .env.example en ${site.path}`)
+      throw new Error(`Neither .env nor .env.example exists in ${site.path}`)
     }
     original = await readFile(example, 'utf8')
   }
@@ -164,10 +164,10 @@ export async function sendmailInfo(): Promise<MailpitSendmailInfo[]> {
 }
 
 export async function setPhpSendmail(version: string, enable: boolean): Promise<void> {
-  if (!/^\d+\.\d+$/.test(version)) throw new Error('Versión PHP no válida')
+  if (!/^\d+\.\d+$/.test(version)) throw new Error('Invalid PHP version')
   const config = await loadConfig()
   const binary = (await resolveBinary(config)).binary
-  if (enable && !binary) throw new Error('Instala Mailpit antes de configurar sendmail')
+  if (enable && !binary) throw new Error('Install Mailpit before configuring sendmail')
   const ports = configPorts(config)
   const command = binary ? `${binary} ${SENDMAIL_CMD} -S 127.0.0.1:${ports.smtp}` : null
   const files = iniFiles(version)
@@ -181,7 +181,7 @@ export async function setPhpSendmail(version: string, enable: boolean): Promise<
     for (const [kind, file] of Object.entries(files) as ['fpm' | 'cli', string][]) {
       if (!existsSync(file)) continue
       const src = await readRootFile(file)
-      if (src == null) throw new Error(`No se pudo leer ${file}`)
+      if (src == null) throw new Error(`Could not read ${file}`)
       const current = parseSendmailPath(src)
       if (!(kind in entry)) entry[kind] = current
       const next = replaceSendmailPath(src, enable ? command : entry[kind] ?? null)
@@ -191,7 +191,7 @@ export async function setPhpSendmail(version: string, enable: boolean): Promise<
       }
     }
     if (!changed.length) {
-      if (enable) throw new Error(`No se encontró php.ini de PHP ${version}`)
+      if (enable) throw new Error(`php.ini for PHP ${version} was not found`)
       return
     }
     await saveSendmailState({ ...state, [version]: { fpm: entry.fpm ?? null, cli: entry.cli ?? null } })
@@ -202,7 +202,7 @@ export async function setPhpSendmail(version: string, enable: boolean): Promise<
     }
     for (const c of changed) await writeRootFile(c.file, c.content)
     const test = await run(`php-fpm${version}`, ['-t'], true)
-    if (/failed|error/i.test(test)) throw new Error(`php-fpm${version} rechazó la configuración: ${test.trim()}`)
+    if (/failed|error/i.test(test)) throw new Error(`php-fpm${version} rejected the configuration: ${test.trim()}`)
     const active = (await run('systemctl', ['is-active', `php${version}-fpm`], true)).trim() === 'active'
     if (active) await sudo('systemctl', ['restart', `php${version}-fpm`])
   } catch (e) {
@@ -223,11 +223,11 @@ function phpString(value: string): string {
 
 /** Envía un correo con mail() y comprueba que Mailpit recibe un mensaje nuevo. */
 export async function testPhpMail(version: string, to: string): Promise<void> {
-  if (!/^\d+\.\d+$/.test(version)) throw new Error('Versión PHP no válida')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new Error('Dirección de correo no válida')
+  if (!/^\d+\.\d+$/.test(version)) throw new Error('Invalid PHP version')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new Error('Invalid email address')
   const before = await messageCount()
   const binary = await phpBinary(version)
-  const code = `exit(mail(${phpString(to)}, "Prueba de sendmail", "Correo enviado desde PHP ${version} con Valet Dashboard") ? 0 : 1);`
+  const code = `exit(mail(${phpString(to)}, "Sendmail test", "Mail sent from PHP ${version} with Valet Dashboard") ? 0 : 1);`
   await run(binary, ['-r', code])
   const deadline = Date.now() + 10_000
   while (Date.now() < deadline) {
@@ -235,5 +235,5 @@ export async function testPhpMail(version: string, to: string): Promise<void> {
     if (now != null && before != null && now > before) return
     await new Promise((r) => setTimeout(r, 400))
   }
-  throw new Error('PHP aceptó el envío, pero Mailpit no muestra un mensaje nuevo. Revisa sendmail_path y el registro de Mailpit.')
+  throw new Error('PHP accepted the send, but Mailpit shows no new message. Check sendmail_path and the Mailpit log.')
 }

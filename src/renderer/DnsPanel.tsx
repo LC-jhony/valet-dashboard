@@ -42,30 +42,30 @@ export function DnsPanel({ env, dnsMode, onMode, installed, busy, safeReason, on
   }
 
   const checks = [
-    { label: 'systemd-resolved', ok: dns.resolvedActive, yes: 'activo', no: 'no está activo' },
-    { label: 'NetworkManager', ok: dns.networkManager, yes: 'presente', no: 'no detectado' },
-    { label: `Puerto ${dns.port}`, ok: dns.portFree, yes: 'libre para el DNS', no: 'ocupado por otro programa' },
-    { label: `*.${domain}`, ok: dns.testResolves, yes: 'resuelve a este equipo', no: 'todavía no resuelve' }
+    { label: 'systemd-resolved', ok: dns.resolvedActive, yes: 'active', no: 'not running' },
+    { label: 'NetworkManager', ok: dns.networkManager, yes: 'present', no: 'not detected' },
+    { label: `Port ${dns.port}`, ok: dns.portFree, yes: 'free for DNS', no: 'taken by another program' },
+    { label: `*.${domain}`, ok: dns.testResolves, yes: 'resolves to this machine', no: 'not resolving yet' }
   ]
 
   return (
     <div className="panel dns-panel" id="install-dns">
       <div className="panel-head">
         <span className="panel-icon"><Icon name="folder_connection_open" size={18} /></span>
-        <h2 className="panel-title">Red y DNS</h2>
+        <h2 className="panel-title">Network and DNS</h2>
         <span className={`tag ${dns.dashboardActive || dns.testResolves ? 'on' : 'warn'}`}>
-          {dns.dashboardActive ? 'DNS seguro activo' : dns.testResolves ? 'los sitios resuelven' : 'sin DNS propio'}
+          {dns.dashboardActive ? 'Safe DNS active' : dns.testResolves ? 'sites resolve' : 'no DNS of its own'}
         </span>
       </div>
 
       <p className="dns-intro">
-        Tus sitios se llaman <code>algo.{domain}</code> y no existen en internet. Para que el
-        navegador los encuentre, este equipo tiene que responder por <code>*.{domain}</code>:
-        eso es el DNS. Elige cómo quieres que responda; se aplica al instalar o al pulsar{' '}
-        <strong>Reparar DNS</strong>.
+        Your sites are named <code>something.{domain}</code> and do not exist on the internet. For
+        the browser to find them, this machine has to answer for <code>*.{domain}</code>: that is
+        DNS. Choose how it should answer; it is applied when installing or when you press{' '}
+        <strong>Repair DNS</strong>.
       </p>
 
-      <div className="dns-modes" role="radiogroup" aria-label="Modo DNS" onKeyDown={onKeyDown}>
+      <div className="dns-modes" role="radiogroup" aria-label="DNS mode" onKeyDown={onKeyDown}>
         <button
           type="button"
           role="radio"
@@ -73,22 +73,22 @@ export function DnsPanel({ env, dnsMode, onMode, installed, busy, safeReason, on
           ref={(el) => { refs.current.safe = el }}
           className={`dns-mode ${dnsMode === 'safe' ? 'on' : ''}`}
           disabled={Boolean(safeReason)}
-          title={safeReason ? `No disponible: ${safeReason}` : undefined}
+          title={safeReason ? `Not available: ${safeReason}` : undefined}
           onClick={() => onMode('safe')}
         >
           <span className="dns-mode-head">
             <span className="dns-mode-dot" aria-hidden="true" />
-            <strong>Seguro</strong>
-            {env.recommendedDnsMode === 'safe' && <span className="tag on">recomendado</span>}
+            <strong>Safe</strong>
+            {env.recommendedDnsMode === 'safe' && <span className="tag on">recommended</span>}
           </span>
           <span className="dns-mode-what">
-            Un dnsmasq propio escucha en <code>127.0.0.1:{dns.port}</code> y systemd-resolved le
-            pasa solo lo que acaba en <code>.{domain}</code>.
+            A dedicated dnsmasq listens on <code>127.0.0.1:{dns.port}</code> and systemd-resolved
+            forwards it only names ending in <code>.{domain}</code>.
           </span>
           <span className={`dns-mode-note ${safeReason ? 'warn' : ''}`}>
             {safeReason
-              ? <>No disponible: {safeReason}.</>
-              : <>No toca tu WiFi, ni <code>/etc/resolv.conf</code>, ni desactiva systemd-resolved.</>}
+              ? <>Not available: {safeReason}.</>
+              : <>It does not touch your Wi-Fi, <code>/etc/resolv.conf</code>, or disable systemd-resolved.</>}
           </span>
         </button>
 
@@ -103,16 +103,16 @@ export function DnsPanel({ env, dnsMode, onMode, installed, busy, safeReason, on
           <span className="dns-mode-head">
             <span className="dns-mode-dot" aria-hidden="true" />
             <strong>Hosts</strong>
-            {env.recommendedDnsMode === 'hosts' && <span className="tag on">recomendado</span>}
+            {env.recommendedDnsMode === 'hosts' && <span className="tag on">recommended</span>}
           </span>
           <span className="dns-mode-what">
-            Añade una línea por sitio en <code>/etc/hosts</code>, la lista donde el sistema
-            busca nombres. Sin daemon DNS:
+            Adds one line per site to <code>/etc/hosts</code>, the list where the system looks up
+            names. No DNS daemon:
           </span>
           <span className="dns-mode-code"><code>127.0.0.1 mi-app.{domain}</code></span>
           <span className="dns-mode-note">
-            Cada sitio nuevo hay que añadirlo con <strong>Sincronizar hosts</strong>.
-            Tampoco toca tu red.
+            Each new site must be added with <strong>Sync hosts</strong>.
+            It does not touch your network either.
           </span>
         </button>
 
@@ -126,27 +126,27 @@ export function DnsPanel({ env, dnsMode, onMode, installed, busy, safeReason, on
         >
           <span className="dns-mode-head">
             <span className="dns-mode-dot" aria-hidden="true" />
-            <strong>Clásico</strong>
+            <strong>Classic</strong>
           </span>
           <span className="dns-mode-what">
-            Es el DNS original de Valet: reescribe <code>/etc/resolv.conf</code>, aparta
-            systemd-resolved y reinicia NetworkManager.
+            The original Valet DNS: rewrites <code>/etc/resolv.conf</code>, moves
+            systemd-resolved aside and restarts NetworkManager.
           </span>
           <span className="dns-mode-note warn">
-            Puede dejarte sin WiFi hasta reiniciar. Úsalo solo si ya lo tenías así.
+            It can leave you without Wi-Fi until you reboot. Use it only if you already had it this way.
           </span>
         </button>
       </div>
 
       {dnsMode === 'classic' && (
         <p className="panel-warn">
-          El modo clásico cambia la configuración de red del sistema. Si después no navegas,
-          reinicia el equipo y el panel podrá volver al modo seguro.
+          Classic mode changes the system network configuration. If you cannot browse afterwards,
+          reboot and the panel will be able to return to safe mode.
         </p>
       )}
 
       <div className="dns-checks">
-        <h3>Comprobaciones en este equipo</h3>
+        <h3>Checks on this machine</h3>
         <ul>
           {checks.map((c) => (
             <li key={c.label} className={c.ok ? 'ok' : 'warn'}>
@@ -164,22 +164,22 @@ export function DnsPanel({ env, dnsMode, onMode, installed, busy, safeReason, on
           disabled={busy || !installed || dnsMode === 'classic' || (dnsMode === 'safe' && Boolean(safeReason))}
           onClick={onRepair}
         >
-          <Glyph name="restart" size={13} />Reparar DNS
+          <Glyph name="restart" size={13} />Repair DNS
         </button>
         <button
           className="btn"
           disabled={busy || !installed || dnsMode !== 'hosts'}
-          title={dnsMode === 'hosts' ? 'Añade a /etc/hosts los sitios que falten' : 'Solo se usa en el modo Hosts'}
+          title={dnsMode === 'hosts' ? 'Adds any missing sites to /etc/hosts' : 'Only used in Hosts mode'}
           onClick={onSync}
         >
-          <Glyph name="restart" size={13} />Sincronizar hosts
+          <Glyph name="restart" size={13} />Sync hosts
         </button>
         <span className="dns-actions-note">
           {dnsMode === 'classic'
-            ? 'Este modo no necesita reparación desde el panel.'
+            ? 'This mode does not need repairing from the panel.'
             : dnsMode === 'hosts'
-              ? 'Reparar DNS vuelve a escribir /etc/hosts con todos tus sitios.'
-              : 'Reparar DNS vuelve a aplicar la ruta del modo seguro.'}
+              ? 'Repair DNS rewrites /etc/hosts with all your sites.'
+              : 'Repair DNS reapplies the safe mode route.'}
         </span>
       </div>
     </div>

@@ -157,52 +157,52 @@ export function databaseChoices(available: DatabaseDriver[]): { driver: Database
 }
 
 /**
- * Errores en español que impiden crear el proyecto. Vacío significa que se
+ * Errores que impiden crear el proyecto. Vacío significa que se
  * puede ejecutar. `flags` es lo que el instalador instalado entiende.
  */
 export function validateAnswers(a: LaravelAnswers, caps: LaravelCapabilities): string[] {
   const errors: string[] = []
   if (!PROJECT_NAME_RE.test(a.name)) {
-    errors.push('Nombre no válido: usa minúsculas, números y guiones, sin empezar ni terminar en guion (máx. 63).')
+    errors.push('Invalid name: use lowercase letters, numbers and hyphens, without starting or ending with a hyphen (max. 63).')
   }
   if (!DATABASE_DRIVERS.includes(a.database)) {
-    errors.push(`Base de datos desconocida: ${String(a.database)}`)
+    errors.push(`Unknown database: ${String(a.database)}`)
   } else if (!caps.databases.includes(a.database)) {
-    errors.push(`${DATABASE_LABELS[a.database]} no está disponible: falta su extensión PDO en PHP.`)
+    errors.push(`${DATABASE_LABELS[a.database]} is not available: its PDO extension is missing in PHP.`)
   }
-  if (!FRONTEND_STACKS.includes(a.frontendStack)) errors.push(`Stack de frontend desconocido: ${String(a.frontendStack)}`)
-  if (!STACK_LABELS[a.starterKit]) errors.push(`Starter kit desconocido: ${String(a.starterKit)}`)
-  if (a.authProvider !== 'laravel' && a.authProvider !== 'workos') errors.push('Proveedor de autenticación no válido.')
-  if (a.testing !== 'pest' && a.testing !== 'phpunit') errors.push('Framework de pruebas no válido.')
-  if (a.node !== 'none' && !NODE_MANAGERS.includes(a.node)) errors.push(`Gestor de Node desconocido: ${String(a.node)}`)
+  if (!FRONTEND_STACKS.includes(a.frontendStack)) errors.push(`Unknown frontend stack: ${String(a.frontendStack)}`)
+  if (!STACK_LABELS[a.starterKit]) errors.push(`Unknown starter kit: ${String(a.starterKit)}`)
+  if (a.authProvider !== 'laravel' && a.authProvider !== 'workos') errors.push('Invalid authentication provider.')
+  if (a.testing !== 'pest' && a.testing !== 'phpunit') errors.push('Invalid test framework.')
+  if (a.node !== 'none' && !NODE_MANAGERS.includes(a.node)) errors.push(`Unknown Node manager: ${String(a.node)}`)
 
   const flags = caps.flags
   const need = (flag: string, what: string) => {
-    if (!supports(flags, flag)) errors.push(`${what} no está disponible en tu instalador de Laravel (${flag}). Actualízalo.`)
+    if (!supports(flags, flag)) errors.push(`${what} is not available in your Laravel installer (${flag}). Update it.`)
   }
 
   if (a.useStarterKit) {
-    need(`--${a.starterKit}`, `El starter kit ${STACK_LABELS[a.starterKit]}`)
+    need(`--${a.starterKit}`, `The ${STACK_LABELS[a.starterKit]} starter kit`)
     if (a.authProvider === 'workos') need('--workos', 'WorkOS')
     if (a.starterKit === 'livewire' && a.authProvider === 'laravel' && !a.livewireSingleFile) {
-      need('--livewire-class-components', 'Los componentes Livewire de clase')
+      need('--livewire-class-components', 'Class-based Livewire components')
     }
     if (a.teams && a.starterKit === 'livewire' && a.authProvider === 'laravel' && a.livewireSingleFile) {
-      need('--teams', 'El soporte de equipos')
+      need('--teams', 'Team support')
     }
   } else {
-    if (a.frontendStack !== 'blade') need(`--${a.frontendStack}`, `El stack ${STACK_LABELS[a.frontendStack]}`)
-    need('--no-authentication', 'El esqueleto sin autenticación')
+    if (a.frontendStack !== 'blade') need(`--${a.frontendStack}`, `The ${STACK_LABELS[a.frontendStack]} stack`)
+    need('--no-authentication', 'The skeleton without authentication')
   }
 
   if (a.testing === 'pest') need('--pest', 'Pest')
   else need('--phpunit', 'PHPUnit')
   if (a.boost) need('--boost', 'Laravel Boost')
   if (a.node !== 'none') {
-    if (!caps.nodeManagers.includes(a.node)) errors.push(`No se encontró ${a.node} en el sistema.`)
-    else need(`--${a.node}`, `El gestor ${a.node}`)
+    if (!caps.nodeManagers.includes(a.node)) errors.push(`${a.node} was not found on this system.`)
+    else need(`--${a.node}`, `The ${a.node} manager`)
   }
-  need('--database', 'La elección de base de datos')
+  need('--database', 'The database choice')
   return errors
 }
 
@@ -219,15 +219,15 @@ export const defaultDatabasePort = (driver: DatabaseDriver): number => defaultPo
 /** Validación de las credenciales. La contraseña puede ir vacía. */
 export function validateDatabase(connection: DatabaseConnection): string[] {
   const errors: string[] = []
-  if (!connection.host.trim() || /\s/.test(connection.host)) errors.push('El host de la base de datos no es válido.')
+  if (!connection.host.trim() || /\s/.test(connection.host)) errors.push('The database host is not valid.')
   if (!Number.isInteger(connection.port) || connection.port < 1 || connection.port > 65535) {
-    errors.push('El puerto de la base de datos debe estar entre 1 y 65535.')
+    errors.push('The database port must be between 1 and 65535.')
   }
   if (!/^[A-Za-z0-9_]+$/.test(connection.database)) {
-    errors.push('El nombre de la base de datos solo admite letras, números y guiones bajos.')
+    errors.push('The database name only allows letters, numbers and underscores.')
   }
   if (!connection.username.trim() || /\s/.test(connection.username)) {
-    errors.push('El usuario de la base de datos no es válido.')
+    errors.push('The database user is not valid.')
   }
   return errors
 }

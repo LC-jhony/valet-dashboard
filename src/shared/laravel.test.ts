@@ -173,12 +173,12 @@ describe('validateAnswers', () => {
 
   it('rechaza una base de datos sin extensión PDO', () => {
     expect(validateAnswers(answers({ database: 'sqlite' }), caps({ databases: ['mysql'] })))
-      .toContain('SQLite no está disponible: falta su extensión PDO en PHP.')
+      .toContain('SQLite is not available: its PDO extension is missing in PHP.')
   })
 
   it('rechaza un gestor de Node que no está instalado', () => {
     expect(validateAnswers(answers({ node: 'bun' }), caps({ nodeManagers: ['npm'] })))
-      .toContain('No se encontró bun en el sistema.')
+      .toContain('bun was not found on this system.')
   })
 
   it('rechaza flags que el instalador no anuncia', () => {

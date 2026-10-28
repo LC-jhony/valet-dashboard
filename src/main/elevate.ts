@@ -59,7 +59,7 @@ export async function elevationCommand(): Promise<{ cmd: string; args: string[] 
 export async function elevated(cmd: string, args: string[] = []): Promise<string> {
   const how = await currentElevation()
   if (!how) {
-    throw new Error('No hay método de elevación: instala polkit (pkexec) o sudo con zenity')
+    throw new Error('No elevation method: install polkit (pkexec) or sudo with zenity')
   }
   if (how.cmd === 'pkexec') return run('pkexec', [cmd, ...args])
   await ensureAskpass()
@@ -70,7 +70,7 @@ export async function elevated(cmd: string, args: string[] = []): Promise<string
 export async function elevatedInput(cmd: string, args: string[], input: string): Promise<string> {
   const how = await currentElevation()
   if (!how) {
-    throw new Error('No hay método de elevación: instala polkit (pkexec) o sudo con zenity')
+    throw new Error('No elevation method: install polkit (pkexec) or sudo with zenity')
   }
   if (how.cmd === 'pkexec') return runInput('pkexec', [cmd, ...args], input)
   await ensureAskpass()

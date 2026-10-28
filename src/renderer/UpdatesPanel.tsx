@@ -56,7 +56,7 @@ export function UpdatesPanel({ visible, busy, onRun }: {
 
   const apply = async (item: UpdateItem) => {
     if (item.needsElevation &&
-      !confirm(`Actualizar ${item.label} pedirá tu contraseña de administrador. ¿Continuar?`)) return
+      !confirm(`Upgrading ${item.label} will ask for your administrator password. Continue?`)) return
     setRunning(item.id)
     try {
       await onRun(item.id)
@@ -70,20 +70,20 @@ export function UpdatesPanel({ visible, busy, onRun }: {
     <div className="panel" id="install-updates">
       <div className="panel-head">
         <span className="panel-icon"><Icon name="folder_update_open" size={18} /></span>
-        <h2 className="panel-title">Programas y actualizaciones</h2>
+        <h2 className="panel-title">Programs and updates</h2>
         <span className={`tag ${pending.length ? 'warn' : 'on'}`}>
           {loading && !data
-            ? 'comprobando'
+            ? 'checking'
             : pending.length
-              ? `${pending.length} ${pending.length === 1 ? 'actualización' : 'actualizaciones'}`
-              : 'al día'}
+              ? `${pending.length} ${pending.length === 1 ? 'update' : 'updates'}`
+              : 'up to date'}
         </span>
       </div>
 
       <p className="panel-note">
-        Compara lo instalado con lo último disponible de PHP, nginx, dnsmasq, Composer, Valet y
-        Node.js. El panel actualiza los paquetes del sistema y el Valet que instaló él; cuando el
-        programa lo gestiona otra cosa, muestra el comando para hacerlo a mano.
+        Compares what is installed with the latest available PHP, nginx, dnsmasq, Composer, Valet
+        and Node.js. The panel updates system packages and the Valet it installed itself; when
+        something else manages a program, it shows the command to do it by hand.
       </p>
 
       {error && <p className="panel-warn">{error}</p>}
@@ -92,7 +92,7 @@ export function UpdatesPanel({ visible, busy, onRun }: {
       {loading || (!data && !error) ? (
         <div className="updates-loading">
           <Glyph name="spinner" size={14} className="spin" />
-          <span>Consultando versiones…</span>
+          <span>Checking versions…</span>
         </div>
       ) : (
         <ul className="rows updates-rows">
@@ -103,9 +103,9 @@ export function UpdatesPanel({ visible, busy, onRun }: {
                 <div className="row-text">
                   <strong>{item.label}</strong>
                   <small>
-                    {item.current ? `Instalado: ${item.current}` : 'No instalado'}
+                    {item.current ? `Installed: ${item.current}` : 'Not installed'}
                     {item.available && item.latest && item.latest !== item.current
-                      ? ` · disponible: ${item.latest}`
+                      ? ` · available: ${item.latest}`
                       : ''}
                   </small>
                   {item.blocked && <small className="updates-blocked">{item.blocked}</small>}
@@ -121,16 +121,16 @@ export function UpdatesPanel({ visible, busy, onRun }: {
                   <button
                     className="btn primary"
                     disabled={busy}
-                    aria-label={`Actualizar ${item.label}`}
+                    aria-label={`Upgrade ${item.label}`}
                     onClick={() => void apply(item)}
                   >
                     <Glyph name="refresh" size={12} />
-                    {running === item.id ? 'Actualizando…' : 'Actualizar'}
+                    {running === item.id ? 'Upgrading…' : 'Upgrade'}
                   </button>
                 ) : item.available ? (
-                  <span className="tag warn">a mano</span>
+                  <span className="tag warn">manual</span>
                 ) : (
-                  <span className="tag on">al día</span>
+                  <span className="tag on">up to date</span>
                 )}
               </div>
             </li>
@@ -140,12 +140,12 @@ export function UpdatesPanel({ visible, busy, onRun }: {
 
       <div className="panel-actions">
         <button className="btn" disabled={busy || loading} onClick={() => void load(true)}>
-          <Glyph name="refresh" size={13} />{loading ? 'Comprobando…' : 'Comprobar de nuevo'}
+          <Glyph name="refresh" size={13} />{loading ? 'Checking…' : 'Check again'}
         </button>
         <span className="dns-actions-note">
           {data
-            ? `Última comprobación: ${new Date(data.checkedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
-            : 'Sin datos todavía'}
+            ? `Last check: ${new Date(data.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+            : 'No data yet'}
         </span>
       </div>
     </div>

@@ -38,9 +38,9 @@ export function MailpitSidebar({ r }: { r: Resource<MailpitInfo> }) {
           <div className="side-current">
             <span className="side-current-icon"><Glyph name="mail" size={20} /></span>
             <div>
-              <span className="side-label">Servidor de correo</span>
+              <span className="side-label">Mail server</span>
               <strong>Mailpit {info.version ?? ''}</strong>
-              <span className="side-current-sub">{info.running ? `escuchando en ${info.ports.ui}` : 'detenido'}</span>
+              <span className="side-current-sub">{info.running ? `listening on ${info.ports.ui}` : 'stopped'}</span>
             </div>
             <span className={`status-dot ${info.running ? 'ok' : 'idle'}`} />
           </div>
@@ -61,18 +61,18 @@ export function MailpitSidebar({ r }: { r: Resource<MailpitInfo> }) {
             </li>
           </ul>
 
-          <div className="side-group-label">Buzón</div>
+          <div className="side-group-label">Mailbox</div>
           <ul className="side-check-list">
             <li className={info.running ? 'ok' : 'warn'}>
-              <Glyph name="info" size={15} /><span>Mensajes</span>
+              <Glyph name="info" size={15} /><span>Messages</span>
               <strong>{info.messages ?? '—'}</strong>
             </li>
             <li className={info.running ? 'ok' : 'warn'}>
-              <Glyph name="info" size={15} /><span>Sin leer</span>
+              <Glyph name="info" size={15} /><span>Unread</span>
               <strong>{info.unread ?? '—'}</strong>
             </li>
             <li>
-              <Glyph name="info" size={15} /><span>Base de datos</span>
+              <Glyph name="info" size={15} /><span>Database</span>
               <span>{formatBytes(info.databaseSize)}</span>
             </li>
           </ul>
@@ -81,19 +81,19 @@ export function MailpitSidebar({ r }: { r: Resource<MailpitInfo> }) {
           <ul className="side-check-list">
             <li className={info.binary ? 'ok' : 'warn'}>
               <Glyph name="install" size={15} />
-              <span>{info.binarySource === 'system' ? 'Mailpit del sistema' : 'Copia gestionada'}</span>
+              <span>{info.binarySource === 'system' ? 'System Mailpit' : 'Managed copy'}</span>
               <Glyph name={info.binary ? 'check' : 'alert'} size={13} />
             </li>
             <li className={info.latestVersion ? 'ok' : 'warn'}>
-              <Glyph name="refresh" size={15} /><span>Última versión</span>
+              <Glyph name="refresh" size={15} /><span>Latest version</span>
               <span>{info.latestVersion ?? '—'}</span>
             </li>
-            {info.tls && <li className="ok"><Glyph name="lock" size={15} /><span>TLS activo</span><Glyph name="check" size={13} /></li>}
-            {info.auth && <li className="ok"><Glyph name="lock" size={15} /><span>Auth de UI</span><Glyph name="check" size={13} /></li>}
+            {info.tls && <li className="ok"><Glyph name="lock" size={15} /><span>TLS active</span><Glyph name="check" size={13} /></li>}
+            {info.auth && <li className="ok"><Glyph name="lock" size={15} /><span>UI auth</span><Glyph name="check" size={13} /></li>}
           </ul>
 
-          {info.uptime && <p className="side-note">En marcha desde hace {info.uptime}.</p>}
-          <p className="side-note">El buzón se abre en el área principal. Los atajos Ctrl+1…6 siguen funcionando dentro de Mailpit.</p>
+          {info.uptime && <p className="side-note">Running for {info.uptime}.</p>}
+          <p className="side-note">The mailbox opens in the main area. Ctrl+1…6 shortcuts still work inside Mailpit.</p>
         </>
       )}
     </>
@@ -143,10 +143,10 @@ export function MailpitPage({ r, active, overlay }: {
     setError('')
     setLog('')
     setPercent(0)
-    setStatus('Consultando la última versión…')
+    setStatus('Checking the latest version…')
     try {
       await window.api.mailpit.install()
-      setStatus('Instalación completada')
+      setStatus('Installation complete')
       r.reload()
     } catch (e) {
       setError(errorMessage(e))
@@ -236,7 +236,7 @@ export function MailpitPage({ r, active, overlay }: {
       await navigator.clipboard.writeText(info.uiUrl)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
-    } catch { setError('No se pudo copiar la URL') }
+    } catch { setError('Could not copy the URL') }
   }
 
   const update = info?.binarySource === 'managed' && info.latestVersion && info.managedVersion && info.latestVersion !== info.managedVersion
@@ -245,12 +245,12 @@ export function MailpitPage({ r, active, overlay }: {
     <section className="page mp-page">
       <header className="page-head">
         <div className="page-copy">
-          <h1>Correo</h1>
-          <p>Mailpit captura el correo de desarrollo, con la interfaz web completa, API, SMTP, POP3 y Relay.</p>
+          <h1>Mail</h1>
+          <p>Mailpit captures development mail, with the full web UI, API, SMTP, POP3 and Relay.</p>
         </div>
         <div className="page-actions">
           <button className="btn" onClick={r.reload} disabled={r.loading}>
-            <Glyph name="refresh" size={14} className={r.loading ? 'spin' : ''} />Actualizar
+            <Glyph name="refresh" size={14} className={r.loading ? 'spin' : ''} />Refresh
           </button>
         </div>
       </header>
@@ -267,19 +267,19 @@ export function MailpitPage({ r, active, overlay }: {
               <span className={`status-dot ${info.running ? 'ok' : 'idle'}`} />
               <strong>Mailpit</strong>
               {info.version && <span className="tag">{info.version}</span>}
-              <span className="mp-state">{info.running ? 'en ejecución' : 'detenido'}</span>
+              <span className="mp-state">{info.running ? 'running' : 'stopped'}</span>
               {info.auth && <span className="tag on"><Glyph name="lock" size={11} />Auth</span>}
               {info.tls && <span className="tag on"><Glyph name="lock" size={11} />TLS</span>}
               <span className="mp-meta">
-                {info.messages ?? '—'} mensajes · {info.unread ?? 0} sin leer · {formatBytes(info.databaseSize)}
+                {info.messages ?? '—'} messages · {info.unread ?? 0} unread · {formatBytes(info.databaseSize)}
               </span>
             </div>
             <div className="mp-endpoints">
               <div className="mp-endpoint">
-                <span className="mp-endpoint-label"><Glyph name="globe" size={12} />Web UI y API</span>
+                <span className="mp-endpoint-label"><Glyph name="globe" size={12} />Web UI and API</span>
                 <span className="mp-endpoint-value">
                   <code>{info.uiUrl}</code>
-                  <button className="icon-btn" onClick={copyUrl} title="Copiar URL" aria-label="Copiar URL">
+                  <button className="icon-btn" onClick={copyUrl} title="Copy URL" aria-label="Copy URL">
                     <Glyph name={copied ? 'check' : 'copy'} size={13} />
                   </button>
                 </span>
@@ -290,17 +290,17 @@ export function MailpitPage({ r, active, overlay }: {
               </div>
             </div>
             <div className="mp-actions">
-              {!info.installed && <button className="btn primary" disabled={busy} onClick={install}><Glyph name="install" size={13} />{busy ? 'Instalando…' : 'Instalar Mailpit'}</button>}
-              {info.installed && !info.running && <button className="btn primary" disabled={busy} onClick={() => act(() => window.api.mailpit.start())}><Glyph name="play" size={13} />Iniciar</button>}
-              {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.stop())}><Glyph name="stop" size={13} />Detener</button>}
-              {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.restart())}><Glyph name="restart" size={13} />Reiniciar</button>}
-              {update && <button className="btn tonal" disabled={busy} onClick={install}><Glyph name="install" size={13} />Actualizar a {info.latestVersion}</button>}
-              <button className="btn" disabled={busy} aria-label="Configuración de Mailpit" onClick={() => openSettings()}><Glyph name="settings" size={13} />Configuración</button>
-              <button className="btn" disabled={busy || !info.installed} onClick={() => setIntegrationsOpen(true)}><Glyph name="terminal" size={13} />Integraciones</button>
-              {info.running && <button className="btn danger" disabled={busy || !info.messages} onClick={() => confirm('¿Vaciar todos los mensajes del buzón?') && act(() => window.api.mailpit.clearMessages())}><Glyph name="close" size={13} />Vaciar buzón</button>}
+              {!info.installed && <button className="btn primary" disabled={busy} onClick={install}><Glyph name="install" size={13} />{busy ? 'Installing…' : 'Install Mailpit'}</button>}
+              {info.installed && !info.running && <button className="btn primary" disabled={busy} onClick={() => act(() => window.api.mailpit.start())}><Glyph name="play" size={13} />Start</button>}
+              {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.stop())}><Glyph name="stop" size={13} />Stop</button>}
+              {info.running && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.restart())}><Glyph name="restart" size={13} />Restart</button>}
+              {update && <button className="btn tonal" disabled={busy} onClick={install}><Glyph name="install" size={13} />Upgrade to {info.latestVersion}</button>}
+              <button className="btn" disabled={busy} aria-label="Mailpit settings" onClick={() => openSettings()}><Glyph name="settings" size={13} />Settings</button>
+              <button className="btn" disabled={busy || !info.installed} onClick={() => setIntegrationsOpen(true)}><Glyph name="terminal" size={13} />Integrations</button>
+              {info.running && <button className="btn danger" disabled={busy || !info.messages} onClick={() => confirm('Empty all messages in the mailbox?') && act(() => window.api.mailpit.clearMessages())}><Glyph name="close" size={13} />Empty mailbox</button>}
               {/* No depende de que falte el binario: si ya instalaste la copia
                   gestionada, este botón es la forma de volver al del sistema. */}
-              {info.systemBinary && info.binarySource !== 'system' && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.useSystem(info.systemBinary as string))}><Glyph name="check" size={13} />Usar el del sistema</button>}
+              {info.systemBinary && info.binarySource !== 'system' && <button className="btn" disabled={busy} onClick={() => act(() => window.api.mailpit.useSystem(info.systemBinary as string))}><Glyph name="check" size={13} />Use the system one</button>}
             </div>
           </div>
 
@@ -308,7 +308,7 @@ export function MailpitPage({ r, active, overlay }: {
             <div className="mp-install">
               <div className="mp-install-head">
                 <Glyph name="spinner" size={14} className="spin" />
-                <span>{status || 'Trabajando…'}</span>
+                <span>{status || 'Working…'}</span>
                 {percent > 0 && <strong>{percent}%</strong>}
               </div>
               <div className="mp-progress"><span style={{ width: `${percent}%` }} /></div>
@@ -326,7 +326,7 @@ export function MailpitPage({ r, active, overlay }: {
                   <Glyph name="alert" size={14} />
                   <span>{MAILPIT_POP3_WARNING}</span>
                   <button className="btn ghost mp-inline-btn" disabled={busy} onClick={() => openSettings('auth')}>
-                    <Glyph name="settings" size={12} />Configurar POP3
+                    <Glyph name="settings" size={12} />Configure POP3
                   </button>
                 </div>
               )}
@@ -339,22 +339,22 @@ export function MailpitPage({ r, active, overlay }: {
                 <Glyph name="globe" size={13} />
                 <code className="mp-viewurl">{info.uiUrl}</code>
                 <button className="btn ghost mp-inline-btn" disabled={busy} onClick={() => act(() => window.api.mailpit.openExternal())}>
-                  <Glyph name="globe" size={12} />Abrir en el navegador
+                  <Glyph name="globe" size={12} />Open in browser
                 </button>
               </div>
             )}
             {info.running
-              ? <div className="mp-embed" ref={hostRef} aria-label="Interfaz de Mailpit" />
+              ? <div className="mp-embed" ref={hostRef} aria-label="Mailpit interface" />
               : (
                 <div className="mp-embed-empty">
                   <Glyph name="mail" size={28} />
-                  <strong>{info.installed ? 'Mailpit está detenido' : 'Mailpit todavía no está instalado'}</strong>
+                  <strong>{info.installed ? 'Mailpit is stopped' : 'Mailpit is not installed yet'}</strong>
                   <p>{info.installed
-                    ? 'Inícialo para capturar correo y ver el buzón aquí mismo.'
-                    : 'Instala el binario oficial para empezar a capturar el correo de desarrollo.'}</p>
+                    ? 'Start it to capture mail and see the mailbox right here.'
+                    : 'Install the official binary to start capturing development mail.'}</p>
                   {info.installed
-                    ? <button className="btn primary" disabled={busy} onClick={() => act(() => window.api.mailpit.start())}><Glyph name="play" size={13} />Iniciar Mailpit</button>
-                    : <button className="btn primary" disabled={busy} onClick={install}><Glyph name="install" size={13} />Instalar Mailpit</button>}
+                    ? <button className="btn primary" disabled={busy} onClick={() => act(() => window.api.mailpit.start())}><Glyph name="play" size={13} />Start Mailpit</button>
+                    : <button className="btn primary" disabled={busy} onClick={install}><Glyph name="install" size={13} />Install Mailpit</button>}
                 </div>
               )}
           </div>
