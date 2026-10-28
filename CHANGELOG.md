@@ -59,6 +59,14 @@ Todos los cambios relevantes de este proyecto se anotan aquí. El formato sigue
   los interlineados bajan de siete valores a tres: títulos, interfaz y texto largo.
 - El modo compacto aprieta de verdad: además de filas y paneles, reduce las alturas de
   control y las barras mediante el token `--dense`.
+- La pestaña **Correo** deja de ser una sucesión de tarjetas y pasa a ser un visor. Una
+  barra compacta reúne estado, versión, protección y contadores, con los endpoints en dos
+  chips de dos líneas que ya no truncan las URLs; debajo, las acciones en su propia fila,
+  los avisos en una línea cada uno y la interfaz de Mailpit con una barra de navegador que
+  muestra la URL y **Abrir en el navegador**. El visor es cuadrado, porque la vista es una
+  superficie nativa que no admite esquinas redondeadas, y crece con la ventana en lugar de
+  tener un alto fijo. Se retiran las tarjetas de estadísticas y los avisos duplicados de la
+  barra lateral.
 - Los controles rellenos (botón **Nuevo proyecto** y segmentos activos) usan un rojo más
   profundo con texto blanco: el rojo de marca sobre fondo oscuro no admitía blanco con
   contraste AA, así que el acento queda para iconos, bordes y texto, y el relleno usa
