@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
 import { join, basename, isAbsolute, resolve, sep } from 'node:path'
 import { constants as fsConstants, existsSync } from 'node:fs'
@@ -7,9 +6,11 @@ import type {
   ApacheInfo, CreateProjectEvent, CreateProjectOptions, PhpInfo, PortsInfo, PortUsage,
   ProjectInfo, Service, ServiceAction, Site
 } from '../shared/types'
-import { COMPOSER_HOME, run } from './exec'
+import { run } from './exec'
 import { sudo } from './elevate'
-import { prepareHelpers, privilegedEnv, runValet, unprivilegedEnv } from './helpers'
+import { prepareHelpers, runValet } from './helpers'
+import { PROJECT_NAME_RE, patchEnv, projectEnvValues, validateAnswers, validateDatabase, type DatabaseConnection, type LaravelAnswers } from '../shared/laravel'
+import { cancelLaravelNew, detectLaravel, ensureLaravel, laravelCapabilities, runLaravelNew } from './laravel-installer'
 
 const HOME = homedir()
 const VALET = join(HOME, '.valet')
@@ -124,9 +125,8 @@ export async function siteUrl(name: string): Promise<string> {
 }
 
 // ---------------- Crear proyectos Laravel ----------------
-const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
-const PROJECT_VERSION_RE = /^[0-9A-Za-z.*^~<>=|@+ ][0-9A-Za-z.*^~<>=|@+ -]{0,59}$/
 let creatingProject = false
+let incompleteTarget: string | null = null
 
 const linksDirReal = () => realpath(LINKS_DIR).catch(() => resolve(LINKS_DIR))
 
@@ -164,7 +164,7 @@ async function isParkedDir(dir: string): Promise<boolean> {
   return false
 }
 
-/** Datos que necesita el diálogo de creación antes de ejecutar Composer. */
+/** Datos que necesita el asistente de creación antes de ejecutar `laravel new`. */
 export async function projectInfo(): Promise<ProjectInfo> {
   const { tld, paths } = await valetConfig()
   const parkedPaths: string[] = []
@@ -179,9 +179,10 @@ export async function projectInfo(): Promise<ProjectInfo> {
   const fallback = join(HOME, 'Sites')
   const defaultDir = parkedPaths[0] ?? (existsSync(fallback) ? fallback : HOME)
   const { http } = await detectNginxPorts(await nginxFiles())
-  const [composer, valet] = await Promise.all([
+  const [composer, valet, installer] = await Promise.all([
     run('composer', ['--version'], true),
-    run('valet', ['--version'], true)
+    run('valet', ['--version'], true),
+    detectLaravel()
   ])
   return {
     domain: tld,
@@ -189,53 +190,108 @@ export async function projectInfo(): Promise<ProjectInfo> {
     defaultDir,
     httpPort: http,
     composerAvailable: composer.trim() !== '',
-    valetAvailable: valet.trim() !== ''
+    valetAvailable: valet.trim() !== '',
+    installer: { available: Boolean(installer), version: installer?.version ?? null },
+    capabilities: await laravelCapabilities(installer)
   }
 }
 
-function composerCreate(parent: string, name: string, version: string, emit: (e: CreateProjectEvent) => void): Promise<void> {
-  const args = ['create-project', 'laravel/laravel', name, ...(version ? [version] : []), '--no-interaction', '--no-progress']
-  const printable = args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')
-  emit({ type: 'log', text: `$ composer ${printable}\n` })
-  return new Promise((resolve, reject) => {
-    // Composer ejecuta scripts del proyecto: se ejecuta sin el ayudante `sudo`.
-    const child = spawn('composer', args, { cwd: parent, env: unprivilegedEnv({ COMPOSER_HOME, COMPOSER_NO_INTERACTION: '1' }) })
-    const out = (b: Buffer) => emit({ type: 'log', text: b.toString() })
-    child.stdout.on('data', out)
-    child.stderr.on('data', out)
-    child.on('error', (e) => reject(new Error(`No se pudo ejecutar Composer: ${e.message}`)))
-    child.on('close', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`Composer terminó con código ${code}. Revisa el registro.`))
-    })
-  })
+/** Escribe en `.env` los valores elegidos; en `.env.example`, solo los no secretos. */
+async function patchProjectEnv(
+  target: string,
+  driver: LaravelAnswers['database'],
+  connection: DatabaseConnection | null,
+  appUrl: string | null
+): Promise<void> {
+  const values = projectEnvValues(driver, connection, appUrl)
+  if (!Object.keys(values).length) return
+  const envFile = join(target, '.env')
+  const current = await readFile(envFile, 'utf8')
+  await writeFile(envFile, patchEnv(current, values))
+
+  const example = { ...values }
+  delete example.DB_PASSWORD
+  try {
+    const content = await readFile(join(target, '.env.example'), 'utf8')
+    await writeFile(join(target, '.env.example'), patchEnv(content, example))
+  } catch { /* el esqueleto puede no traer .env.example */ }
+}
+
+/** Detiene el `laravel new` en curso y deja constancia de la cancelación. */
+export async function cancelCreateProject(): Promise<void> {
+  cancelLaravelNew()
+}
+
+/**
+ * Borra la carpeta que quedó a medias tras una creación fallida. Solo acepta
+ * exactamente la última que registró el proceso principal: nunca una ruta
+ * arbitraria del renderer, un enlace de Valet ni un sitio ya registrado.
+ */
+export async function deleteIncompleteProject(path: unknown): Promise<void> {
+  if (typeof path !== 'string' || !path.trim()) throw new Error('Ruta no válida.')
+  const target = resolve(expandHome(path.trim()))
+  if (!incompleteTarget || target !== incompleteTarget) {
+    throw new Error('Solo se puede eliminar la carpeta incompleta de la última creación fallida.')
+  }
+  if (await isInLinksDir(target)) {
+    throw new Error('La carpeta está dentro de los enlaces de Valet; no se elimina desde aquí.')
+  }
+  if (!PROJECT_NAME_RE.test(basename(target))) throw new Error('La ruta no parece una carpeta de proyecto.')
+  const sites = await listSites()
+  if (sites.some((s) => resolve(s.path) === target)) {
+    throw new Error('La carpeta ya es un sitio de Valet. Elimínala desde la lista de sitios.')
+  }
+  if (!existsSync(target)) {
+    incompleteTarget = null
+    return
+  }
+  if (!(await stat(target)).isDirectory()) throw new Error('La ruta no es una carpeta.')
+  await rm(target, { recursive: true, force: true })
+  incompleteTarget = null
 }
 
 export async function createLaravelProject(opts: CreateProjectOptions, emit: (e: CreateProjectEvent) => void): Promise<Site> {
   if (creatingProject) throw new Error('Ya hay una creación de proyecto en curso.')
   creatingProject = true
+  incompleteTarget = null
+  let target = ''
+  let mayHaveCreated = false
   try {
-    const name = typeof opts?.name === 'string' ? opts.name.trim() : ''
+    const answers = opts?.answers
+    if (!answers || typeof answers !== 'object') throw new Error('Faltan las respuestas del asistente.')
+    const name = typeof answers.name === 'string' ? answers.name.trim() : ''
     assertProjectName(name)
-    const version = typeof opts?.version === 'string' ? opts.version.trim() : ''
-    if (version && !PROJECT_VERSION_RE.test(version)) {
-      throw new Error('Versión de Laravel no válida. Usa una restricción como 12.* o ^12.0.')
-    }
 
     const parent = await projectParentDir(opts?.parentDir)
-    const target = join(parent, name)
+    target = join(parent, name)
     if (existsSync(target)) throw new Error(`Ya existe ${target}. Elige otro nombre o carpeta.`)
     if ((await listSites()).some((s) => s.name === name)) throw new Error(`Ya existe un sitio llamado ${name}.`)
 
-    const [composer, valet] = await Promise.all([
-      run('composer', ['--version'], true),
-      run('valet', ['--version'], true)
-    ])
-    if (!composer.trim()) throw new Error('Composer no está instalado. Instálalo desde la pestaña Instalación.')
+    const valet = await run('valet', ['--version'], true)
     if (!valet.trim()) throw new Error('Valet no está instalado. Instálalo desde la pestaña Instalación.')
 
-    emit({ type: 'stage', label: 'Creando el proyecto con Composer…' })
-    await composerCreate(parent, name, version, emit)
+    // Si no hay instalador, ensureLaravel lo instala en el Composer aislado.
+    const installer = await ensureLaravel(emit)
+    const capabilities = await laravelCapabilities(installer)
+    const normalized: LaravelAnswers = { ...answers, name }
+    const database = opts.database ?? null
+    const errors = validateAnswers(normalized, capabilities)
+    if (normalized.database !== 'sqlite') {
+      if (!database) errors.push('Faltan las credenciales de la base de datos.')
+      else errors.push(...validateDatabase(database))
+    }
+    if (errors.length) throw new Error(errors.join(' '))
+
+    emit({ type: 'stage', label: 'Creando el proyecto con el instalador de Laravel…' })
+    mayHaveCreated = true
+    await runLaravelNew(installer, parent, normalized, database, emit)
+
+    emit({ type: 'stage', label: 'Guardando la configuración de la base de datos…' })
+    try {
+      await patchProjectEnv(target, normalized.database, database, null)
+    } catch {
+      emit({ type: 'log', text: '\nNo se pudo escribir la configuración de la base de datos en .env; revísala antes de usar el proyecto.\n' })
+    }
 
     emit({ type: 'stage', label: 'Registrando el sitio en Valet…' })
     if (!(await isParkedDir(parent))) {
@@ -250,8 +306,22 @@ export async function createLaravelProject(opts: CreateProjectOptions, emit: (e:
     emit({ type: 'stage', label: 'Actualizando la lista de sitios…' })
     const site = (await listSites()).find((s) => s.name === name)
     if (!site) throw new Error(`El proyecto se creó en ${target}, pero no aparece en la lista de Valet.`)
+
+    // El instalador deja APP_URL con el dominio por defecto y sin el puerto real.
+    try {
+      await patchProjectEnv(target, normalized.database, database, site.url ? site.url.replace(/\/$/, '') : null)
+    } catch { emit({ type: 'log', text: '\nNo se pudo actualizar APP_URL en .env; el resto del proyecto está listo.\n' }) }
+
     emit({ type: 'stage', label: 'Proyecto creado' })
     return site
+  } catch (e) {
+    // Solo se ofrece borrar una carpeta que este intento pudo crear: nunca una
+    // que ya existía antes y provocó el rechazo.
+    if (mayHaveCreated && target && existsSync(target)) {
+      incompleteTarget = resolve(target)
+      emit({ type: 'incomplete', path: incompleteTarget, message: (e as Error).message })
+    }
+    throw e
   } finally {
     creatingProject = false
   }

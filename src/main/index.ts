@@ -22,6 +22,8 @@ const handlers: Record<string, (...a: any[]) => Promise<unknown>> = {
   'sites:secure': v.setSecure,
   'sites:open': async (name: string) => { await shell.openExternal(await v.siteUrl(name)) },
   'sites:project-info': v.projectInfo,
+  'sites:cancel-create': v.cancelCreateProject,
+  'sites:delete-incomplete': v.deleteIncompleteProject,
   'php:list': v.phpInfo,
   'php:use': v.usePhp,
   'ports:scan': v.scanPorts,

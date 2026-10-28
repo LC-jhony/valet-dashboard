@@ -12,6 +12,8 @@ const api: Api = {
     projectInfo: () => call('sites:project-info'),
     pickDirectory: (current) => call('sites:pick-dir', current),
     create: (o) => call('sites:create', o),
+    cancelCreate: () => call('sites:cancel-create'),
+    deleteIncomplete: (p) => call('sites:delete-incomplete', p),
     onCreateEvent: (cb) => {
       const h = (_e: unknown, ev: CreateProjectEvent) => cb(ev)
       ipcRenderer.on('sites:create-event', h)

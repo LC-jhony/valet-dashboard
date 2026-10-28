@@ -1047,6 +1047,8 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
 }
 .dialog .field-note { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .dialog input[type="text"],
+.dialog input[type="password"],
+.dialog input[type="number"],
 .dialog input:not([type]) {
   height: 32px;
   padding: 0 9px;
@@ -1074,6 +1076,65 @@ input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var
 .dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 
 .create-dialog { width: min(580px, 100%); }
+.create-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+.create-steps li { display: inline-flex; align-items: center; gap: 5px; }
+.create-steps li + li::before { content: '·'; margin-right: 6px; color: var(--line); }
+.create-steps span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+.create-steps li.on { color: var(--ink); }
+.create-steps li.on span { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.create-steps li.done span { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); color: var(--ok); }
+.create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.create-grid .field { margin-bottom: 12px; }
+.create-wide { grid-column: 1 / -1; }
+.create-blocked { color: var(--warn); }
+.create-command {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.create-incomplete {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 4px 0 14px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 42%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
+  font-size: 12px;
+}
+.create-incomplete > .glyph { flex: none; margin-top: 1px; }
+.create-incomplete strong { display: block; color: var(--ink); font-size: 12.5px; }
+.create-incomplete p { margin: 3px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+.create-incomplete .btn { margin-top: 9px; }
 .create-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
 .create-fields .field:last-of-type { margin-bottom: 12px; }
 .path-row { display: flex; gap: 6px; }

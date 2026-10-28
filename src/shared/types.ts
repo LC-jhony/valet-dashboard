@@ -1,6 +1,8 @@
 import type { MailpitApi } from './mailpit'
+import type { DatabaseConnection, LaravelAnswers, LaravelCapabilities } from './laravel'
 
 export type { MailpitApi } from './mailpit'
+export type { DatabaseConnection, LaravelAnswers, LaravelCapabilities } from './laravel'
 
 export interface Site { name: string; path: string; secure: boolean; kind: 'parked' | 'linked'; url: string }
 export interface ProjectInfo {
@@ -10,15 +12,24 @@ export interface ProjectInfo {
   httpPort: number
   composerAvailable: boolean
   valetAvailable: boolean
+  /** Instalador de Laravel (`laravel new`). Si falta, se instala al crear. */
+  installer: { available: boolean; version: string | null }
+  /** Opciones reales que permiten el instalador, PHP y los gestores de Node. */
+  capabilities: LaravelCapabilities
 }
 export interface CreateProjectOptions {
-  name: string
+  /** Carpeta donde se creará el proyecto (nunca un enlace de Valet). */
   parentDir: string
-  version: string
+  /** Respuestas del asistente, incluido el nombre del proyecto. */
+  answers: LaravelAnswers
+  /** Credenciales para `artisan migrate`; `null` con SQLite. */
+  database: DatabaseConnection | null
 }
 export type CreateProjectEvent =
   | { type: 'stage'; label: string }
   | { type: 'log'; text: string }
+  /** La creación falló y quedó una carpeta que el usuario puede eliminar. */
+  | { type: 'incomplete'; path: string; message: string }
 export interface PortUsage { port: number; process: string; pid: string }
 export interface ApacheInfo { installed: boolean; active: boolean; enabled: boolean; http: number | null; https: number | null }
 export interface PortsInfo {
@@ -70,6 +81,9 @@ export interface Api {
     projectInfo(): Promise<ProjectInfo>
     pickDirectory(current?: string): Promise<string | null>
     create(opts: CreateProjectOptions): Promise<Site>
+    cancelCreate(): Promise<void>
+    /** Borra la última carpeta incompleta de una creación fallida. */
+    deleteIncomplete(path: string): Promise<void>
     onCreateEvent(cb: (e: CreateProjectEvent) => void): () => void
   }
   php: { list(): Promise<PhpInfo>; use(version: string): Promise<void> }
